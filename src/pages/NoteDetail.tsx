@@ -357,145 +357,125 @@ export const NoteDetail: React.FC = () => {
   const renderToolbar = () => {
     if (!editor) return null
 
+    const getButtonClass = (isActive: boolean) => {
+      return `p-2 rounded-lg transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer active:scale-95 border ${
+        isActive
+          ? 'bg-purple-100/80 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-500/30'
+          : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-white/5 border-transparent'
+      }`
+    }
+
+    const getUtilityButtonClass = (disabled: boolean) => {
+      return `p-2 rounded-lg transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer active:scale-95 border border-transparent ${
+        disabled
+          ? 'opacity-25 cursor-not-allowed text-zinc-400 dark:text-zinc-600'
+          : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-white/5'
+      }`
+    }
+
     return (
-      <div className="flex flex-wrap items-center gap-1 p-2 border-b border-white/5 bg-black/40">
+      <div className="sticky top-0 z-20 flex flex-wrap items-center gap-1.5 px-4 py-2.5 border-b border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-[#0d0d11] shadow-[0_2px_8px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
         <button
           onClick={() => editor.chain().focus().toggleBold().run()}
           disabled={!editor.can().chain().focus().toggleBold().run()}
-          className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-            editor.isActive('bold')
-              ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
+          className={getButtonClass(editor.isActive('bold'))}
           title="Bold"
         >
-          <Bold className="h-3.5 w-3.5" strokeWidth={1.5} />
+          <Bold className="h-4 w-4" strokeWidth={1.5} />
         </button>
         <button
           onClick={() => editor.chain().focus().toggleItalic().run()}
           disabled={!editor.can().chain().focus().toggleItalic().run()}
-          className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-            editor.isActive('italic')
-              ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
+          className={getButtonClass(editor.isActive('italic'))}
           title="Italic"
         >
-          <Italic className="h-3.5 w-3.5" strokeWidth={1.5} />
+          <Italic className="h-4 w-4" strokeWidth={1.5} />
         </button>
         
-        <div className="w-[1px] h-5 bg-white/5 mx-1" />
+        <div className="w-[1px] h-4 bg-zinc-200 dark:bg-white/10 mx-1" />
 
         <button
           onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-            editor.isActive('heading', { level: 1 })
-              ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
+          className={getButtonClass(editor.isActive('heading', { level: 1 }))}
           title="Heading 1"
         >
-          <Heading1 className="h-3.5 w-3.5" strokeWidth={1.5} />
+          <Heading1 className="h-4 w-4" strokeWidth={1.5} />
         </button>
         <button
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-            editor.isActive('heading', { level: 2 })
-              ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
+          className={getButtonClass(editor.isActive('heading', { level: 2 }))}
           title="Heading 2"
         >
-          <Heading2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+          <Heading2 className="h-4 w-4" strokeWidth={1.5} />
         </button>
         <button
           onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-            editor.isActive('heading', { level: 3 })
-              ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
+          className={getButtonClass(editor.isActive('heading', { level: 3 }))}
           title="Heading 3"
         >
-          <Heading3 className="h-3.5 w-3.5" strokeWidth={1.5} />
+          <Heading3 className="h-4 w-4" strokeWidth={1.5} />
         </button>
 
-        <div className="w-[1px] h-5 bg-white/5 mx-1" />
+        <div className="w-[1px] h-4 bg-zinc-200 dark:bg-white/10 mx-1" />
 
         <button
           onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-            editor.isActive('bulletList')
-              ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
+          className={getButtonClass(editor.isActive('bulletList'))}
           title="Bullet List"
         >
-          <List className="h-3.5 w-3.5" strokeWidth={1.5} />
+          <List className="h-4 w-4" strokeWidth={1.5} />
         </button>
         <button
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-            editor.isActive('orderedList')
-              ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
+          className={getButtonClass(editor.isActive('orderedList'))}
           title="Ordered List"
         >
-          <ListOrdered className="h-3.5 w-3.5" strokeWidth={1.5} />
+          <ListOrdered className="h-4 w-4" strokeWidth={1.5} />
         </button>
         <button
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-            editor.isActive('blockquote')
-              ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
+          className={getButtonClass(editor.isActive('blockquote'))}
           title="Blockquote"
         >
-          <Quote className="h-3.5 w-3.5" strokeWidth={1.5} />
+          <Quote className="h-4 w-4" strokeWidth={1.5} />
         </button>
         <button
           onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-          className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-            editor.isActive('codeBlock')
-              ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
+          className={getButtonClass(editor.isActive('codeBlock'))}
           title="Code Block"
         >
-          <Code className="h-3.5 w-3.5" strokeWidth={1.5} />
+          <Code className="h-4 w-4" strokeWidth={1.5} />
         </button>
 
-        <div className="w-[1px] h-5 bg-white/5 mx-1 flex-grow sm:flex-grow-0" />
+        <div className="w-[1px] h-4 bg-zinc-200 dark:bg-white/10 mx-1" />
 
         <button
           onClick={() => editor.chain().focus().undo().run()}
           disabled={!editor.can().chain().focus().undo().run()}
-          className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed border border-transparent cursor-pointer"
+          className={getUtilityButtonClass(!editor.can().chain().focus().undo().run())}
           title="Undo"
         >
-          <Undo className="h-3.5 w-3.5" strokeWidth={1.5} />
+          <Undo className="h-4 w-4" strokeWidth={1.5} />
         </button>
         <button
           onClick={() => editor.chain().focus().redo().run()}
           disabled={!editor.can().chain().focus().redo().run()}
-          className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed border border-transparent cursor-pointer"
+          className={getUtilityButtonClass(!editor.can().chain().focus().redo().run())}
           title="Redo"
         >
-          <Redo className="h-3.5 w-3.5" strokeWidth={1.5} />
+          <Redo className="h-4 w-4" strokeWidth={1.5} />
         </button>
       </div>
     )
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 sm:px-6 py-12 space-y-8 animate-fade-in">
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 py-12 space-y-8 animate-fade-in">
       {/* Top Navigation Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 relative z-10">
         <Link
           to="/subjects?tab=guides"
-          className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-white transition-colors group"
+          className="inline-flex items-center gap-2 text-xs font-bold text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors group"
         >
           <ChevronLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-1" strokeWidth={1.5} />
           Back to Workspace
@@ -504,19 +484,19 @@ export const NoteDetail: React.FC = () => {
         {/* Saved Status Indicator */}
         <div className="flex items-center gap-2 text-xs font-semibold">
           {savingStatus === 'saving' && (
-            <span className="inline-flex items-center gap-1.5 text-purple-300">
+            <span className="inline-flex items-center gap-1.5 text-purple-600 dark:text-purple-300">
               <Loader2 className="h-3 w-3 animate-spin" strokeWidth={1.5} />
               Saving...
             </span>
           )}
           {savingStatus === 'saved' && lastSaved && (
-            <span className="inline-flex items-center gap-1.5 text-emerald-400">
+            <span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
               <Save className="h-3.5 w-3.5" strokeWidth={1.5} />
               Saved at {formatTime(lastSaved)}
             </span>
           )}
           {savingStatus === 'error' && (
-            <span className="inline-flex items-center gap-1.5 text-red-400">
+            <span className="inline-flex items-center gap-1.5 text-red-600 dark:text-red-400">
               <AlertCircle className="h-3.5 w-3.5" strokeWidth={1.5} />
               Retrying sync...
             </span>
@@ -525,39 +505,39 @@ export const NoteDetail: React.FC = () => {
       </div>
 
       {error && (
-        <div className="flex items-start gap-3 rounded-xl bg-red-500/10 border border-red-500/25 p-4 text-xs text-red-400 animate-fade-in">
+        <div className="flex items-start gap-3 rounded-xl bg-red-500/10 border border-red-500/25 p-4 text-xs text-red-400 animate-fade-in relative z-10">
           <AlertCircle className="h-4.5 w-4.5 shrink-0 mt-0.5" strokeWidth={1.5} />
           <span>{error}</span>
         </div>
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-32">
+        <div className="flex items-center justify-center py-32 relative z-10">
           <Loader2 className="h-6 w-6 text-purple-400 animate-spin" strokeWidth={1.5} />
         </div>
       ) : (
-        <div className="double-bezel-outer">
-          <div className="double-bezel-inner overflow-hidden flex flex-col">
+        <div className="double-bezel-outer relative z-10">
+          <div className="double-bezel-inner">
             {/* Note Title Input & Subject Selection */}
-            <div className="p-6 sm:p-8 border-b border-white/5 bg-black/25 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="p-6 sm:p-8 border-b border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-black/25 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-t-[calc(1.25rem-0.375rem)]">
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Give your study guide a title..."
-                className="flex-1 bg-transparent border-0 font-display text-xl sm:text-2xl font-extrabold text-white placeholder-zinc-700 focus:outline-none focus:ring-0 p-0 tracking-tight"
+                className="flex-1 bg-transparent border-0 font-display text-xl sm:text-2xl font-extrabold text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-700 focus:outline-none focus:ring-0 p-0 tracking-tight"
               />
               
-              <div className="flex items-center gap-1.5 shrink-0 bg-[#050507] border border-white/5 rounded-xl px-3 py-1.5">
+              <div className="flex items-center gap-1.5 shrink-0 bg-zinc-100 dark:bg-[#050507] border border-zinc-200 dark:border-white/5 rounded-xl px-3 py-1.5">
                 <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Subject:</span>
                 <select
                   value={selectedSubjectId}
                   onChange={(e) => handleSubjectChange(e.target.value)}
-                  className="bg-transparent border-0 text-xs text-zinc-300 font-bold focus:outline-none focus:ring-0 cursor-pointer"
+                  className="bg-transparent border-0 text-xs text-zinc-800 dark:text-zinc-300 font-bold focus:outline-none focus:ring-0 cursor-pointer"
                 >
-                  <option value="" className="bg-[#050507]">Unassigned</option>
+                  <option value="" className="bg-white dark:bg-zinc-950 text-zinc-800 dark:text-zinc-200">Unassigned</option>
                   {subjects.map((sub) => (
-                    <option key={sub.id} value={sub.id} className="bg-[#050507]">
+                    <option key={sub.id} value={sub.id} className="bg-white dark:bg-zinc-950 text-zinc-800 dark:text-zinc-200">
                       {sub.name}
                     </option>
                   ))}
@@ -569,7 +549,7 @@ export const NoteDetail: React.FC = () => {
             {renderToolbar()}
 
             {/* Editor Area with Constrained Width */}
-            <div className="prose-editor p-4 sm:p-8 min-h-[400px]">
+            <div className="prose-editor p-4 sm:p-8 min-h-[400px] rounded-b-[calc(1.25rem-0.375rem)]">
               <div className="max-w-[75ch] mx-auto">
                 <EditorContent editor={editor} />
               </div>

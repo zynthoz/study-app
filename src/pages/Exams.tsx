@@ -302,7 +302,7 @@ export const Exams: React.FC = () => {
   })
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-12">
+    <div className="mx-auto max-w-7xl px-6 py-12">
 
       {/* Error Alert */}
       {error && !generating && (

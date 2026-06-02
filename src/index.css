@@ -26,7 +26,7 @@ body {
   font-family: var(--font-sans);
   background-color: #030303;
   color: #d1d5db;
-  overflow-x: hidden;
+  overflow-x: clip;
   min-height: 100vh;
 }
 
@@ -267,20 +267,43 @@ html.light .bg-emerald-600,
 html.light .bg-emerald-600 * {
   color: #ffffff !important;
 }
-html.light .text-zinc-100 {
+html.light .text-zinc-100,
+html.light .text-gray-100 {
+  color: #09090b !important;
+}
+html.light .text-zinc-200,
+html.light .text-gray-200 {
   color: #18181b !important;
 }
-html.light .text-zinc-200 {
+html.light .text-zinc-300,
+html.light .text-gray-300 {
   color: #27272a !important;
 }
-html.light .text-zinc-300 {
+html.light .text-zinc-400,
+html.light .text-gray-400 {
   color: #3f3f46 !important;
 }
-html.light .text-zinc-400 {
+html.light .text-zinc-500,
+html.light .text-gray-500 {
   color: #52525b !important;
 }
-html.light .text-zinc-500 {
-  color: #71717a !important;
+html.light .text-zinc-600,
+html.light .text-gray-600 {
+  color: #52525b !important;
+}
+
+/* Dark Mode Gray Contrast Optimizations */
+html.dark .text-zinc-500,
+html.dark .text-gray-500 {
+  color: #94949e !important; /* Lighter zinc/gray (contrast ratio ~ 7.3:1 against #08080a) */
+}
+html.dark .text-zinc-600,
+html.dark .text-gray-600 {
+  color: #787880 !important; /* Lighter zinc/gray (contrast ratio ~ 5.0:1 against #08080a) */
+}
+html.dark .text-zinc-700,
+html.dark .text-gray-700 {
+  color: #71717a !important; /* Muted gray (contrast ratio ~ 4.6:1 against #08080a) */
 }
 
 /* Background overrides */

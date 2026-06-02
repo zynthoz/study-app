@@ -193,7 +193,7 @@ export const ExamDetail: React.FC = () => {
 
   if (error || !exam) {
     return (
-      <div className="mx-auto max-w-5xl px-6 py-12">
+      <div className="mx-auto max-w-7xl px-6 py-12">
         <Link
           to="/exams"
           className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-white transition-colors group mb-6"
@@ -212,7 +212,7 @@ export const ExamDetail: React.FC = () => {
   const typeCounts = getTypeCounts()
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-12 space-y-6">
+    <div className="mx-auto max-w-7xl px-6 py-12 space-y-6">
       {/* Back Link */}
       <Link
         to="/exams"

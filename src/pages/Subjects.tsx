@@ -176,6 +176,7 @@ export const Subjects: React.FC = () => {
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
   const [selectedMaterialsForNotes, setSelectedMaterialsForNotes] = useState<string[]>([])
   const [generatingNotes, setGeneratingNotes] = useState(false)
+  const [creatingBlankNote, setCreatingBlankNote] = useState(false)
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null)
 
   // Exam Generation Modal States
@@ -848,6 +849,38 @@ export const Subjects: React.FC = () => {
     }
   }
 
+  const handleCreateBlankNote = async () => {
+    if (!user) return
+    setCreatingBlankNote(true)
+    setError(null)
+    try {
+      const subjectParamId = activeSubjectId === 'unassigned' ? null : activeSubjectId
+      const { data, error: createError } = await supabase
+        .from('tbl_notes')
+        .insert({
+          user_id: user.id,
+          title: 'Untitled Note',
+          content: '<p>Start writing your note here...</p>',
+          material_ids: [],
+          subject_id: subjectParamId,
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (createError) throw createError
+
+      if (data) {
+        navigate(`/notes/${data.id}`)
+      }
+    } catch (err: any) {
+      console.error('Error creating blank note:', err)
+      setError(err.message || 'Failed to create blank note.')
+    } finally {
+      setCreatingBlankNote(false)
+    }
+  }
+
   const handleDeleteNote = async (noteId: string, title: string) => {
     openConfirmModal(
       'Delete Study Guide',
@@ -978,7 +1011,7 @@ export const Subjects: React.FC = () => {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 sm:px-6 py-12 space-y-10 animate-fade-in">
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 py-12 space-y-10 animate-fade-in">
 
       {/* Floating Toast Notifications */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full px-4 sm:px-0">
@@ -1344,17 +1377,31 @@ export const Subjects: React.FC = () => {
                 <div className="space-y-6">
                   {/* Header Action */}
                   <div className="flex items-center justify-between pb-1">
-                    <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">AI Synthesized Notes</h3>
-                    <button
-                      onClick={() => {
-                        setError(null)
-                        setIsNotesModalOpen(true)
-                      }}
-                      className="flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-2 text-xs font-bold text-white transition-all duration-300 shadow-[0_2px_10px_rgba(168,85,247,0.15)] cursor-pointer hover:-translate-y-[1px] active:scale-[0.98]"
-                    >
-                      <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
-                      Generate Notes
-                    </button>
+                    <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Study Guides & Notes</h3>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleCreateBlankNote}
+                        disabled={creatingBlankNote}
+                        className="flex items-center gap-1.5 rounded-xl bg-zinc-900 border border-white/10 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 text-xs font-bold text-white transition-all duration-300 cursor-pointer hover:-translate-y-[1px] active:scale-[0.98]"
+                      >
+                        {creatingBlankNote ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
+                        ) : (
+                          <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        )}
+                        Write Blank Note
+                      </button>
+                      <button
+                        onClick={() => {
+                          setError(null)
+                          setIsNotesModalOpen(true)
+                        }}
+                        className="flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-2 text-xs font-bold text-white transition-all duration-300 shadow-[0_2px_10px_rgba(168,85,247,0.15)] cursor-pointer hover:-translate-y-[1px] active:scale-[0.98]"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        Generate with AI
+                      </button>
+                    </div>
                   </div>
 
                   {/* Guides Table List */}

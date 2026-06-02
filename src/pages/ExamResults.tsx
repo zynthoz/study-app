@@ -159,7 +159,7 @@ export const ExamResults: React.FC = () => {
 
   if (error || !session || !exam) {
     return (
-      <div className="mx-auto max-w-5xl px-6 py-12">
+      <div className="mx-auto max-w-7xl px-6 py-12">
         <Link
           to={isHistoryView ? "/history" : "/exams"}
           className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-white transition-colors group mb-6"
@@ -184,7 +184,7 @@ export const ExamResults: React.FC = () => {
   const strokeDashoffset = circumference - (scorePercentage / 100) * circumference
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-12">
+    <div className="mx-auto max-w-7xl px-6 py-12">
       {/* Back link */}
       <Link
         to={isHistoryView ? "/history" : "/exams"}

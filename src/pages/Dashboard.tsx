@@ -291,7 +291,7 @@ export const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 sm:px-6 py-12 space-y-12 animate-fade-in">
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 py-12 space-y-12 animate-fade-in">
 
 
       {error && (

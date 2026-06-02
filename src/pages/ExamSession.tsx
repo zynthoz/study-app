@@ -191,7 +191,7 @@ export const ExamSession: React.FC = () => {
 
   if (error || !exam) {
     return (
-      <div className="mx-auto max-w-5xl px-6 py-12">
+      <div className="mx-auto max-w-7xl px-6 py-12">
         <Link
           to={`/exams/${id}`}
           className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-white transition-colors group mb-6"
@@ -208,7 +208,7 @@ export const ExamSession: React.FC = () => {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-12">
+    <div className="mx-auto max-w-7xl px-6 py-12">
       {/* Header Row */}
       <div className="flex items-center justify-between gap-4 mb-8">
         <Link

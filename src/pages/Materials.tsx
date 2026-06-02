@@ -329,7 +329,7 @@ export const Materials: React.FC = () => {
   })
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-12">
+    <div className="mx-auto max-w-7xl px-6 py-12">
       {/* Page Header */}
       <div className="mb-8">
         <h1 className="font-display text-3xl font-extrabold text-white sm:text-4xl">

@@ -16,7 +16,7 @@ import { HistoryPage } from './pages/History'
 
 const AppLayout: React.FC = () => {
   return (
-    <div className="relative min-h-screen bg-[#080c14] text-gray-100 flex flex-col overflow-hidden">
+    <div className="relative min-h-screen bg-[#080c14] text-gray-100 flex flex-col overflow-x-clip">
       {/* Animating Background Gradients */}
       <div className="absolute top-1/4 left-1/4 h-80 w-80 rounded-full bg-brand-500/5 blur-3xl animate-float-slow pointer-events-none"></div>
       <div className="absolute bottom-1/4 right-1/4 h-96 w-96 rounded-full bg-purple-500/5 blur-3xl animate-float-medium pointer-events-none"></div>
