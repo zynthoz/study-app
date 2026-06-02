@@ -55,10 +55,10 @@ export const Signup: React.FC = () => {
       <div className="z-10 w-full max-w-md">
         {/* Brand Header */}
         <div className="flex flex-col items-center justify-center text-center mb-8 animate-fade-in">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-brand-600 to-purple-500 shadow-[0_0_25px_rgba(139,92,246,0.3)] mb-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-tr from-brand-600 to-purple-500 shadow-[0_0_25px_rgba(139,92,246,0.3)] mb-4">
             <BookOpen className="h-7 w-7 text-white" />
           </div>
-          <h2 className="font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl bg-gradient-to-r from-white via-brand-100 to-brand-300 bg-clip-text text-transparent">
+          <h2 className="font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
             StudyForge
           </h2>
           <p className="mt-2 text-sm text-gray-400">
@@ -67,7 +67,7 @@ export const Signup: React.FC = () => {
         </div>
 
         {/* Card wrapper */}
-        <div className="glass-card rounded-3xl p-8 sm:p-10">
+        <div className="glass-card rounded-xl p-8 sm:p-10">
           {success ? (
             <div className="flex flex-col items-center text-center space-y-6">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10 border border-green-500/20 shadow-[0_0_20px_rgba(34,197,94,0.15)] text-green-400">
@@ -81,7 +81,7 @@ export const Signup: React.FC = () => {
               </div>
               <Link
                 to="/login"
-                className="flex items-center gap-2 rounded-2xl bg-[#111827] border border-gray-800 px-6 py-3 text-sm font-semibold text-gray-200 hover:bg-gray-800 hover:text-white transition-colors"
+                className="flex items-center gap-2 rounded-lg bg-[#111827] border border-gray-800 px-6 py-3 text-sm font-semibold text-gray-200 hover:bg-gray-800 hover:text-white transition-colors"
               >
                 Back to Sign In
               </Link>
@@ -89,7 +89,7 @@ export const Signup: React.FC = () => {
           ) : (
             <form className="space-y-6" onSubmit={handleSignup}>
               {error && (
-                <div className="flex items-start gap-3 rounded-2xl bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400">
+                <div className="flex items-start gap-3 rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400">
                   <AlertCircle className="h-5 w-5 shrink-0" />
                   <span>{error}</span>
                 </div>
@@ -165,7 +165,7 @@ export const Signup: React.FC = () => {
                 id="signup-submit-btn"
                 type="submit"
                 disabled={loading}
-                className="group relative flex w-full justify-center rounded-2xl bg-gradient-to-r from-brand-600 to-purple-600 px-4 py-3.5 text-sm font-semibold text-white hover:from-brand-500 hover:to-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-[0_0_20px_rgba(139,92,246,0.2)] hover:shadow-[0_0_25px_rgba(139,92,246,0.4)] cursor-pointer"
+                className="group relative flex w-full justify-center rounded-lg bg-gradient-to-r from-brand-600 to-purple-600 px-4 py-3.5 text-sm font-semibold text-white hover:from-brand-500 hover:to-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-[0_0_20px_rgba(139,92,246,0.2)] hover:shadow-[0_0_25px_rgba(139,92,246,0.4)] cursor-pointer"
               >
                 {loading ? (
                   <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>

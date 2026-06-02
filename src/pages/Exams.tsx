@@ -77,6 +77,28 @@ export const Exams: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
+  // Reusable custom confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    onConfirm: () => void | Promise<void>
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  })
+
+  const openConfirmModal = (title: string, message: string, onConfirm: () => void | Promise<void>) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm,
+    })
+  }
+
   // Modal & Generation States
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([])
@@ -160,32 +182,38 @@ export const Exams: React.FC = () => {
     e.preventDefault()
     e.stopPropagation()
 
-    if (!window.confirm(`Are you sure you want to delete "${title}"?`)) return
+    openConfirmModal(
+      'Delete Practice Exam',
+      `Are you sure you want to delete "${title}"? This action will also delete all associated attempts.`,
+      async () => {
+        setDeletingId(examId)
+        setError(null)
+        try {
+          // Note: We might also want to delete any tbl_exam_sessions associated with this exam first.
+          // But let's delete them. If cascading delete is enabled, it works automatically.
+          // Let's delete sessions first in case there is no Cascade.
+          await supabase
+            .from('tbl_exam_sessions')
+            .delete()
+            .eq('exam_id', examId)
 
-    setDeletingId(examId)
-    setError(null)
-    try {
-      // Note: We might also want to delete any tbl_exam_sessions associated with this exam first.
-      // But let's delete them. If cascading delete is enabled, it works automatically.
-      // Let's delete sessions first in case there is no Cascade.
-      await supabase
-        .from('tbl_exam_sessions')
-        .delete()
-        .eq('exam_id', examId)
+          const { error: deleteError } = await supabase
+            .from('tbl_exams')
+            .delete()
+            .eq('id', examId)
 
-      const { error: deleteError } = await supabase
-        .from('tbl_exams')
-        .delete()
-        .eq('id', examId)
-
-      if (deleteError) throw deleteError
-      setExams((prev) => prev.filter((ex) => ex.id !== examId))
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete exam')
-    } finally {
-      setDeletingId(null)
-    }
+          if (deleteError) throw deleteError
+          setExams((prev) => prev.filter((ex) => ex.id !== examId))
+        } catch (err: any) {
+          setError(err.message || 'Failed to delete exam')
+        } finally {
+          setDeletingId(null)
+        }
+      }
+    )
   }
+  
+
 
   // Toggle material selection
   const toggleMaterial = (id: string) => {
@@ -275,149 +303,145 @@ export const Exams: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-12">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-        <div>
-          <h1 className="font-display text-3xl font-extrabold text-white sm:text-4xl">
-            Practice Exams
-          </h1>
-          <p className="mt-2 text-gray-400">
-            Generate and take practice exams generated from your course materials.
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            setError(null)
-            setIsModalOpen(true)
-          }}
-          className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 hover:from-purple-500 hover:to-indigo-400 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 cursor-pointer shadow-[0_4px_20px_rgba(147,51,234,0.25)] hover:shadow-[0_4px_25px_rgba(147,51,234,0.35)]"
-        >
-          <Plus className="h-5 w-5" />
-          Generate Exam
-        </button>
-      </div>
 
       {/* Error Alert */}
       {error && !generating && (
-        <div className="mb-6 flex items-start gap-3 rounded-2xl bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400 animate-fade-in">
-          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+        <div className="mb-6 flex items-start gap-3 rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-xs text-red-400 animate-fade-in">
+          <AlertCircle className="h-4.5 w-4.5 shrink-0 mt-0.5" strokeWidth={1.5} />
           <span>{error}</span>
         </div>
       )}
-
       {/* Exams List Header with Subject Filter */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-2 border-b border-white/5">
         <h2 className="font-display text-xl font-bold text-white">
           Your Practice Exams
         </h2>
         
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-gray-500" />
-          <span className="text-xs font-semibold text-gray-400">Filter:</span>
-          <select
-            value={filterSubjectId}
-            onChange={(e) => setFilterSubjectId(e.target.value)}
-            className="rounded-xl bg-white/5 border border-white/10 px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-500/50 cursor-pointer"
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Filter className="h-3.5 w-3.5 text-zinc-500" strokeWidth={1.5} />
+            <span className="text-xs font-semibold text-zinc-400">Filter:</span>
+            <select
+              value={filterSubjectId}
+              onChange={(e) => setFilterSubjectId(e.target.value)}
+              className="rounded-xl bg-white/5 border border-white/10 px-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500/50 cursor-pointer"
+            >
+              <option value="all">All Subjects</option>
+              <option value="unassigned">Unassigned</option>
+              {subjects.map((sub) => (
+                <option key={sub.id} value={sub.id}>
+                  {sub.name}
+                </option>
+              ))}
+            </select>
+            <span className="text-xs text-zinc-500 ml-2">
+              {filteredExams.length} exam{filteredExams.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+
+          <button
+            onClick={() => {
+              setError(null)
+              setIsModalOpen(true)
+            }}
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-2 text-xs font-bold text-white transition-all duration-300 cursor-pointer shadow-[0_4px_12px_rgba(168,85,247,0.15)] hover:shadow-[0_4px_18px_rgba(168,85,247,0.25)] active:scale-[0.98] hover:-translate-y-[1px]"
           >
-            <option value="all">All Subjects</option>
-            <option value="unassigned">Unassigned</option>
-            {subjects.map((sub) => (
-              <option key={sub.id} value={sub.id}>
-                {sub.name}
-              </option>
-            ))}
-          </select>
-          <span className="text-xs text-gray-500 ml-2">
-            {filteredExams.length} exam{filteredExams.length !== 1 ? 's' : ''}
-          </span>
+            <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
+            Generate Exam
+          </button>
         </div>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-24">
-          <Loader2 className="h-8 w-8 text-purple-400 animate-spin" />
+          <Loader2 className="h-6 w-6 text-purple-400 animate-spin" strokeWidth={1.5} />
         </div>
       ) : exams.length === 0 ? (
-        <div className="glass-card rounded-2xl p-16 text-center">
-          <div className="mb-4 flex h-14 w-14 mx-auto items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20">
-            <Award className="h-6 w-6 text-purple-400" />
+        <div className="double-bezel-outer bg-white/[0.005]">
+          <div className="double-bezel-inner p-16 text-center space-y-4">
+            <div className="mb-4 flex h-14 w-14 mx-auto items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20">
+              <Award className="h-6 w-6 text-purple-400" strokeWidth={1.5} />
+            </div>
+            <p className="font-display text-lg font-semibold text-zinc-300">
+              No exams generated yet
+            </p>
+            <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+              Click "Generate Exam" above to configure and create your first practice exam.
+            </p>
           </div>
-          <p className="font-display text-lg font-semibold text-gray-300">
-            No exams generated yet
-          </p>
-          <p className="mt-1 text-sm text-gray-500 max-w-sm mx-auto">
-            Click "Generate Exam" above to configure and create your first practice exam.
-          </p>
         </div>
       ) : filteredExams.length === 0 ? (
-        <div className="glass-card rounded-2xl p-16 text-center">
-          <div className="mb-4 flex h-14 w-14 mx-auto items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20">
-            <Filter className="h-6 w-6 text-purple-400" />
+        <div className="double-bezel-outer bg-white/[0.005]">
+          <div className="double-bezel-inner p-16 text-center space-y-4">
+            <div className="mb-4 flex h-14 w-14 mx-auto items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20">
+              <Filter className="h-6 w-6 text-purple-400" strokeWidth={1.5} />
+            </div>
+            <p className="font-display text-lg font-semibold text-zinc-300">
+              No exams found
+            </p>
+            <p className="text-xs text-zinc-500">
+              There are no exams associated with this subject.
+            </p>
           </div>
-          <p className="font-display text-lg font-semibold text-gray-300">
-            No exams found
-          </p>
-          <p className="mt-1 text-sm text-gray-500">
-            There are no exams associated with this subject.
-          </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-4">
           {filteredExams.map((exam) => {
             const subject = subjects.find((s) => s.id === exam.subject_id)
             const colorStyles = subject ? getSubjectColorStyles(subject.color) : null
 
             return (
-              <Link
+              <div
                 key={exam.id}
-                to={`/exams/${exam.id}`}
-                className="glass-card rounded-2xl p-6 flex flex-col justify-between hover:border-purple-500/30 transition-all duration-200 group relative overflow-hidden bg-white/[0.01]"
+                className="double-bezel-outer group hover:border-purple-500/20 active:scale-[0.99]"
               >
-                <div>
-                  <div className="flex items-start justify-between gap-4 mb-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 group-hover:bg-purple-500/15 group-hover:text-purple-300 transition-all">
-                      <Award className="h-5 w-5" />
+                <div className="double-bezel-inner p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <Link
+                    to={`/exams/${exam.id}`}
+                    className="flex-1 min-w-0"
+                  >
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      {subject ? (
+                        <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full border ${colorStyles?.bg}`}>
+                          {subject.name}
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full border border-white/5 bg-white/5 text-zinc-400">
+                          Unassigned
+                        </span>
+                      )}
+                      <span className="inline-flex items-center gap-1 text-[10px] text-zinc-500 font-mono">
+                        <Calendar className="h-3 w-3" strokeWidth={1.5} />
+                        {formatDate(exam.created_at)}
+                      </span>
                     </div>
+
+                    <h3 className="font-display text-base sm:text-lg font-bold text-white group-hover:text-purple-300 transition-colors truncate">
+                      {exam.title || 'Untitled Exam'}
+                    </h3>
+                  </Link>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                    <span className="inline-flex items-center gap-1.5 text-xs text-purple-300 font-medium bg-purple-500/10 border border-purple-500/20 rounded-full px-2.5 py-1">
+                      {exam.questions?.length || 0} Questions
+                    </span>
 
                     {/* Delete Button */}
                     <button
                       onClick={(e) => handleDeleteExam(e, exam.id, exam.title)}
                       disabled={deletingId === exam.id}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-500/0 border border-transparent text-gray-500 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-500/0 border border-transparent text-zinc-500 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
                       title="Delete Exam"
                     >
                       {deletingId === exam.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
                       ) : (
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
                       )}
                     </button>
                   </div>
-
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    {subject && (
-                      <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${colorStyles?.bg}`}>
-                        {subject.name}
-                      </span>
-                    )}
-                  </div>
-
-                  <h3 className="font-display text-lg font-bold text-white group-hover:text-purple-300 transition-colors line-clamp-2">
-                    {exam.title || 'Untitled Exam'}
-                  </h3>
                 </div>
-
-                <div className="flex items-center justify-between gap-3 mt-6 pt-4 border-t border-white/5">
-                  <span className="inline-flex items-center gap-1.5 text-xs text-purple-400 font-medium bg-purple-500/10 border border-purple-500/20 rounded-full px-2.5 py-1">
-                    {exam.questions?.length || 0} Questions
-                  </span>
-
-                  <span className="inline-flex items-center gap-1 text-xs text-gray-500">
-                    <Calendar className="h-3.5 w-3.5" />
-                    {formatDate(exam.created_at)}
-                  </span>
-                </div>
-              </Link>
+              </div>
             )
           })}
         </div>
@@ -425,7 +449,7 @@ export const Exams: React.FC = () => {
 
       {/* Generation Modal & Loading Overlay */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-md"
@@ -433,292 +457,328 @@ export const Exams: React.FC = () => {
           ></div>
 
           {/* Modal Content */}
-          <div className="glass-card w-full max-w-xl rounded-3xl p-6 sm:p-8 relative z-10 overflow-hidden shadow-2xl border-white/10">
-            {generating ? (
-              /* Generating Loading State */
-              <div className="flex flex-col items-center justify-center text-center py-12 space-y-6">
-                <div className="relative">
-                  {/* Rotating outer ring */}
-                  <div className="h-20 w-20 rounded-full border-4 border-t-purple-500 border-r-transparent border-b-indigo-500 border-l-transparent animate-spin"></div>
-                  {/* Inner logo/glow */}
-                  <div className="absolute inset-2 rounded-full bg-purple-500/10 flex items-center justify-center shadow-[0_0_20px_rgba(168,85,247,0.3)] animate-pulse">
-                    <Sparkles className="h-7 w-7 text-purple-300" />
+          <div className="double-bezel-outer w-full max-w-xl relative z-10">
+            <div className="double-bezel-inner p-6 sm:p-8">
+              {generating ? (
+                /* Generating Loading State */
+                <div className="flex flex-col items-center justify-center text-center py-12 space-y-6">
+                  <div className="relative">
+                    {/* Rotating outer ring */}
+                    <div className="h-20 w-20 rounded-full border-4 border-t-purple-500 border-r-transparent border-b-indigo-500 border-l-transparent animate-spin"></div>
+                    {/* Inner logo/glow */}
+                    <div className="absolute inset-2 rounded-full bg-purple-500/10 flex items-center justify-center shadow-[0_0_20px_rgba(168,85,247,0.3)] animate-pulse">
+                      <Sparkles className="h-7 w-7 text-purple-300" strokeWidth={1.5} />
+                    </div>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <h3 className="font-display text-2xl font-bold text-white">Generating Exam...</h3>
-                  <p className="text-gray-400 text-sm max-w-xs mx-auto leading-relaxed">
-                    Gemini is processing your materials to create customized questions with automated scoring criteria.
-                  </p>
-                </div>
-
-                {/* Simulated progress indicator */}
-                <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden max-w-[240px]">
-                  <div className="bg-gradient-to-r from-purple-500 to-indigo-500 h-full w-2/3 rounded-full animate-pulse"></div>
-                </div>
-              </div>
-            ) : (
-              /* Configuration Form State */
-              <>
-                {/* Header */}
-                <div className="flex items-center justify-between mb-5">
-                  <h3 className="font-display text-2xl font-bold text-white flex items-center gap-2">
-                    <Sliders className="h-5 w-5 text-purple-400" />
-                    Configure Practice Exam
-                  </h3>
-                  <button
-                    onClick={() => setIsModalOpen(false)}
-                    className="p-1 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-
-                <p className="text-sm text-gray-400 mb-5">
-                  Select materials and define your preferred question count and type distribution.
-                </p>
-
-                {/* Error inside modal */}
-                {error && (
-                  <div className="mb-4 flex items-start gap-2.5 rounded-xl bg-red-500/10 border border-red-500/20 p-3 text-xs text-red-400">
-                    <AlertCircle className="h-4.5 w-4.5 shrink-0 mt-0.5" />
-                    <span>{error}</span>
-                  </div>
-                )}
-
-                {/* Scrollable Form Body */}
-                <div className="max-h-[380px] overflow-y-auto pr-1 space-y-5 mb-6">
-                  {/* Subject Selector inside Modal */}
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold text-gray-300">
-                      Link Exam to Subject (Optional)
-                    </label>
-                    <select
-                      value={selectedSubjectId}
-                      onChange={(e) => setSelectedSubjectId(e.target.value)}
-                      className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500/50 cursor-pointer"
+                    <h3 className="font-display text-2xl font-bold text-white">Generating Exam...</h3>
+                    <p className="text-zinc-400 text-sm max-w-xs mx-auto leading-relaxed">
+                      Gemini is processing your materials to create customized questions with automated scoring criteria.
+                    </p>
+                  </div>
+
+                  {/* Simulated progress indicator */}
+                  <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden max-w-[240px]">
+                    <div className="bg-gradient-to-r from-purple-500 to-indigo-500 h-full w-2/3 rounded-full animate-pulse"></div>
+                  </div>
+                </div>
+              ) : (
+                /* Configuration Form State */
+                <>
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-5">
+                    <h3 className="font-display text-2xl font-bold text-white flex items-center gap-2">
+                      <Sliders className="h-5 w-5 text-purple-400" strokeWidth={1.5} />
+                      Configure Practice Exam
+                    </h3>
+                    <button
+                      onClick={() => setIsModalOpen(false)}
+                      className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
                     >
-                      <option value="">Unassigned / None</option>
-                      {subjects.map((sub) => (
-                        <option key={sub.id} value={sub.id}>
-                          {sub.name}
-                        </option>
-                      ))}
-                    </select>
+                      <X className="h-5 w-5" strokeWidth={1.5} />
+                    </button>
                   </div>
 
-                  {/* Material Selector */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-gray-300 flex items-center gap-1.5">
-                      <BookOpen className="h-4 w-4 text-purple-400" />
-                      Select Materials
-                    </label>
-                    <div className="max-h-[140px] overflow-y-auto space-y-2 bg-white/[0.02] border border-white/5 rounded-xl p-2">
-                      {materials.length === 0 ? (
-                        <div className="text-center py-6 bg-white/5 rounded-lg border border-white/5">
-                          <p className="text-xs text-gray-400">No materials available.</p>
-                          <Link
-                            to="/materials"
-                            className="text-[10px] text-purple-400 font-semibold mt-1 inline-block hover:underline"
-                          >
-                            Upload materials first
-                          </Link>
-                        </div>
-                      ) : (
-                        materials.map((m) => {
-                          const isSelected = selectedMaterials.includes(m.id)
-                          return (
-                            <div
-                              key={m.id}
-                              onClick={() => toggleMaterial(m.id)}
-                              className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-all duration-200 select-none
-                                ${isSelected
-                                  ? 'bg-purple-500/10 border-purple-500/30'
-                                  : 'bg-white/5 border-transparent hover:bg-white/10'
-                                }
-                              `}
-                            >
-                              <div className="text-purple-400 shrink-0">
-                                {isSelected ? (
-                                  <CheckSquare className="h-4 w-4 text-purple-400" />
-                                ) : (
-                                  <Square className="h-4 w-4 text-gray-500" />
-                                )}
-                              </div>
+                  <p className="text-sm text-zinc-400 mb-5">
+                    Select materials and define your preferred question count and type distribution.
+                  </p>
 
-                              <div className="min-w-0 flex-1">
-                                <p className="text-xs font-semibold text-gray-200 truncate">
-                                  {m.file_name}
-                                </p>
-                              </div>
-                              <span className="text-[9px] text-gray-500 uppercase font-bold border border-white/10 px-1.5 py-0.5 rounded bg-white/5 shrink-0">
-                                {m.file_type}
-                              </span>
-                            </div>
-                          )
-                        })
-                      )}
+                  {/* Error inside modal */}
+                  {error && (
+                    <div className="mb-4 flex items-start gap-2.5 rounded-xl bg-red-500/10 border border-red-500/20 p-3 text-xs text-red-400">
+                      <AlertCircle className="h-4.5 w-4.5 shrink-0 mt-0.5" strokeWidth={1.5} />
+                      <span>{error}</span>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Question Count */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-gray-300 flex items-center justify-between">
-                      <span>Number of Questions</span>
-                      <span className="text-xs text-purple-400 font-bold bg-purple-500/10 px-2 py-0.5 rounded">
-                        {numQuestions} questions
-                      </span>
-                    </label>
-                    <input
-                      type="range"
-                      min="5"
-                      max="30"
-                      step="1"
-                      value={numQuestions}
-                      onChange={(e) => setNumQuestions(parseInt(e.target.value))}
-                      className="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-white/10 accent-purple-500"
-                    />
-                  </div>
-
-                  {/* Question Type Sliders */}
-                  <div className="space-y-3 pt-2 border-t border-white/5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-semibold text-gray-300">
-                        Question Distribution
+                  {/* Scrollable Form Body */}
+                  <div className="max-h-[380px] overflow-y-auto pr-1 space-y-5 mb-6">
+                    {/* Subject Selector inside Modal */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-zinc-300">
+                        Link Exam to Subject (Optional)
                       </label>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={handleDistributeEvenly}
-                          type="button"
-                          className="text-[10px] bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 px-2 py-1 rounded transition font-medium cursor-pointer"
-                        >
-                          Distribute Evenly
-                        </button>
-                        <span
-                          className={`text-xs font-bold rounded px-2.5 py-0.5 border ${
-                            isPercentageValid
-                              ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400'
-                              : 'bg-red-500/10 border-red-500/25 text-red-400'
-                          }`}
-                        >
-                          Total: {totalPercentage}%
-                        </span>
+                      <select
+                        value={selectedSubjectId}
+                        onChange={(e) => setSelectedSubjectId(e.target.value)}
+                        className="w-full rounded-xl bg-[#050507] border border-white/5 px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500/50 cursor-pointer"
+                      >
+                        <option value="" className="bg-[#050507]">Unassigned / None</option>
+                        {subjects.map((sub) => (
+                          <option key={sub.id} value={sub.id} className="bg-[#050507]">
+                            {sub.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Material Selector */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-zinc-300 flex items-center gap-1.5">
+                        <BookOpen className="h-4 w-4 text-purple-400" strokeWidth={1.5} />
+                        Select Materials
+                      </label>
+                      <div className="max-h-[140px] overflow-y-auto space-y-2 bg-[#050507] border border-white/5 rounded-xl p-2">
+                        {materials.length === 0 ? (
+                          <div className="text-center py-6 bg-white/5 rounded-lg border border-white/5">
+                            <p className="text-xs text-zinc-400">No materials available.</p>
+                            <Link
+                              to="/subjects?tab=files"
+                              className="text-[10px] text-purple-400 font-semibold mt-1 inline-block hover:underline"
+                            >
+                              Upload materials first
+                            </Link>
+                          </div>
+                        ) : (
+                          materials.map((m) => {
+                            const isSelected = selectedMaterials.includes(m.id)
+                            return (
+                              <div
+                                key={m.id}
+                                onClick={() => toggleMaterial(m.id)}
+                                className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-all duration-200 select-none
+                                  ${isSelected
+                                    ? 'bg-purple-500/10 border-purple-500/30'
+                                    : 'bg-transparent border-transparent hover:bg-white/5'
+                                  }
+                                `}
+                              >
+                                <div className="text-purple-400 shrink-0">
+                                  {isSelected ? (
+                                    <CheckSquare className="h-4 w-4 text-purple-400" strokeWidth={1.5} />
+                                  ) : (
+                                    <Square className="h-4 w-4 text-zinc-500" strokeWidth={1.5} />
+                                  )}
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-semibold text-zinc-200 truncate">
+                                    {m.file_name}
+                                  </p>
+                                </div>
+                                <span className="text-[9px] text-zinc-500 uppercase font-bold border border-white/10 px-1.5 py-0.5 rounded bg-white/5 shrink-0">
+                                  {m.file_type}
+                                </span>
+                              </div>
+                            )
+                          })
+                        )}
                       </div>
                     </div>
 
-                    <div className="space-y-2.5 bg-white/[0.01] border border-white/5 rounded-xl p-3">
-                      {/* MC */}
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-400 font-medium">Multiple Choice</span>
-                          <span className="text-gray-300 font-bold">{mcPercent}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          step="5"
-                          value={mcPercent}
-                          onChange={(e) => setMcPercent(parseInt(e.target.value))}
-                          className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                        />
-                      </div>
+                    {/* Question Count */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-zinc-300 flex items-center justify-between">
+                        <span>Number of Questions</span>
+                        <span className="text-xs text-purple-400 font-bold bg-purple-500/10 px-2 py-0.5 rounded">
+                          {numQuestions} questions
+                        </span>
+                      </label>
+                      <input
+                        type="range"
+                        min="5"
+                        max="30"
+                        step="1"
+                        value={numQuestions}
+                        onChange={(e) => setNumQuestions(parseInt(e.target.value))}
+                        className="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-white/10 accent-purple-500"
+                      />
+                    </div>
 
-                      {/* ID */}
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-400 font-medium">Identification</span>
-                          <span className="text-gray-300 font-bold">{idPercent}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          step="5"
-                          value={idPercent}
-                          onChange={(e) => setIdPercent(parseInt(e.target.value))}
-                          className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                        />
-                      </div>
-
-                      {/* TOF */}
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-400 font-medium">True or False</span>
-                          <span className="text-gray-300 font-bold">{tofPercent}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          step="5"
-                          value={tofPercent}
-                          onChange={(e) => setTofPercent(parseInt(e.target.value))}
-                          className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                        />
-                      </div>
-
-                      {/* MTOF */}
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs flex-wrap">
-                          <span className="text-gray-400 font-medium flex items-center gap-1">
-                            Modified True or False
+                    {/* Question Type Sliders */}
+                    <div className="space-y-3 pt-2 border-t border-white/5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-semibold text-zinc-300">
+                          Question Distribution
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={handleDistributeEvenly}
+                            type="button"
+                            className="text-[10px] bg-zinc-900 border border-white/5 hover:bg-zinc-800 text-zinc-300 rounded-lg px-2.5 py-1 transition-all font-bold cursor-pointer"
+                          >
+                            Distribute Evenly
+                          </button>
+                          <span
+                            className={`text-xs font-bold rounded px-2.5 py-0.5 border ${
+                              isPercentageValid
+                                ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400'
+                                : 'bg-red-500/10 border-red-500/25 text-red-400'
+                            }`}
+                          >
+                            Total: {totalPercentage}%
                           </span>
-                          <span className="text-gray-300 font-bold">{mtofPercent}%</span>
                         </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          step="5"
-                          value={mtofPercent}
-                          onChange={(e) => setMtofPercent(parseInt(e.target.value))}
-                          className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                        />
                       </div>
 
-                      {/* ENUM */}
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-400 font-medium">Enumeration</span>
-                          <span className="text-gray-300 font-bold">{enumPercent}%</span>
+                      <div className="space-y-2.5 bg-[#050507] border border-white/5 rounded-xl p-3">
+                        {/* MC */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-zinc-400 font-medium">Multiple Choice</span>
+                            <span className="text-zinc-300 font-bold">{mcPercent}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="5"
+                            value={mcPercent}
+                            onChange={(e) => setMcPercent(parseInt(e.target.value))}
+                            className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                          />
                         </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          step="5"
-                          value={enumPercent}
-                          onChange={(e) => setEnumPercent(parseInt(e.target.value))}
-                          className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                        />
+
+                        {/* ID */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-zinc-400 font-medium">Identification</span>
+                            <span className="text-zinc-300 font-bold">{idPercent}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="5"
+                            value={idPercent}
+                            onChange={(e) => setIdPercent(parseInt(e.target.value))}
+                            className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                          />
+                        </div>
+
+                        {/* TOF */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-zinc-400 font-medium">True or False</span>
+                            <span className="text-zinc-300 font-bold">{tofPercent}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="5"
+                            value={tofPercent}
+                            onChange={(e) => setTofPercent(parseInt(e.target.value))}
+                            className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                          />
+                        </div>
+
+                        {/* MTOF */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs flex-wrap">
+                            <span className="text-zinc-400 font-medium flex items-center gap-1">
+                              Modified True or False
+                            </span>
+                            <span className="text-zinc-300 font-bold">{mtofPercent}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="5"
+                            value={mtofPercent}
+                            onChange={(e) => setMtofPercent(parseInt(e.target.value))}
+                            className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                          />
+                        </div>
+
+                        {/* ENUM */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-zinc-400 font-medium">Enumeration</span>
+                            <span className="text-zinc-300 font-bold">{enumPercent}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="5"
+                            value={enumPercent}
+                            onChange={(e) => setEnumPercent(parseInt(e.target.value))}
+                            className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Actions */}
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setIsModalOpen(false)}
-                    className="flex-1 rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm font-semibold text-gray-300 hover:bg-white/10 transition cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleGenerateExam}
-                    disabled={selectedMaterials.length === 0 || !isPercentageValid}
-                    className="flex-1 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 hover:from-purple-500 hover:to-indigo-400 px-4 py-3 text-sm font-semibold text-white transition shadow-[0_4px_15px_rgba(147,51,234,0.2)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    Generate
-                  </button>
-                </div>
-              </>
-            )}
+                  {/* Actions */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setIsModalOpen(false)}
+                      className="flex-1 rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/10 transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleGenerateExam}
+                      disabled={selectedMaterials.length === 0 || !isPercentageValid}
+                      className="flex-1 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-2.5 text-xs font-bold text-white transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      Generate
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM CONFIRMATION MODAL */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}></div>
+          <div className="double-bezel-outer max-w-sm w-full relative z-10">
+            <div className="double-bezel-inner p-6 space-y-6">
+              <div className="space-y-2">
+                <h3 className="text-lg font-bold text-white">{confirmModal.title}</h3>
+                <p className="text-sm text-zinc-400 leading-relaxed">{confirmModal.message}</p>
+              </div>
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/5">
+                <button
+                  onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                  className="rounded-xl px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:outline-none"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    const onConfirm = confirmModal.onConfirm
+                    setConfirmModal(prev => ({ ...prev, isOpen: false }))
+                    await onConfirm()
+                  }}
+                  className="rounded-xl px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
     </div>
   )
 }
+

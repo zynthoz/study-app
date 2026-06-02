@@ -1,7 +1,7 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { LogOut, BookOpen, LayoutDashboard, Folder, Award, History } from 'lucide-react'
+import { LogOut, BookOpen, LayoutDashboard, Folder, Award, History, Sun, Moon } from 'lucide-react'
 
 const navLinks = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -14,18 +14,38 @@ export const Navbar: React.FC = () => {
   const { user, signOut } = useAuth()
   const location = useLocation()
 
+  const [theme, setTheme] = useState<'light' | 'dark'>(
+    (localStorage.getItem('theme') as 'light' | 'dark') || 'dark'
+  )
+
+  useEffect(() => {
+    const root = window.document.documentElement
+    if (theme === 'light') {
+      root.classList.add('light')
+      root.classList.remove('dark')
+    } else {
+      root.classList.add('dark')
+      root.classList.remove('light')
+    }
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
+  }
+
   if (!user) return null
 
   return (
-    <nav className="glass-nav sticky top-0 z-50 w-full px-6 py-4">
-      <div className="mx-auto flex max-w-7xl items-center justify-between">
+    <nav className="sticky top-0 z-50 w-full px-4 sm:px-6">
+      <div className="mx-auto max-w-5xl mt-6 rounded-full border border-white/10 bg-black/60 backdrop-blur-xl px-4 sm:px-6 py-3 flex items-center justify-between shadow-[0_10px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_10px_35px_rgba(0,0,0,0.6)]">
         {/* Brand/Logo */}
         <div className="flex items-center gap-6">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-brand-600 to-purple-500 shadow-[0_0_15px_rgba(139,92,246,0.3)]">
-              <BookOpen className="h-5 w-5 text-white" />
+          <Link to="/" className="flex items-center gap-2 group">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-900 border border-white/10 group-hover:border-purple-500/50 transition-all duration-300">
+              <BookOpen className="h-4 w-4 text-purple-400 group-hover:text-purple-300 transition-colors" strokeWidth={1.5} />
             </div>
-            <span className="font-display text-xl font-bold tracking-tight text-white bg-gradient-to-r from-white via-brand-200 to-brand-400 bg-clip-text text-transparent">
+            <span className="font-display text-lg font-bold tracking-tight text-white group-hover:text-purple-300 transition-all duration-300">
               StudyForge
             </span>
           </Link>
@@ -39,15 +59,18 @@ export const Navbar: React.FC = () => {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200
+                  className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-300 relative
                     ${isActive
-                      ? 'bg-brand-500/15 text-brand-300 border border-brand-500/20'
-                      : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 border border-transparent'
+                      ? 'text-white'
+                      : 'text-zinc-400 hover:text-zinc-200'
                     }
                   `}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
                   {link.label}
+                  {isActive && (
+                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-purple-400" />
+                  )}
                 </Link>
               )
             })}
@@ -57,15 +80,28 @@ export const Navbar: React.FC = () => {
         {/* User Info & Actions */}
         <div className="flex items-center gap-4">
           <div className="hidden md:flex flex-col text-right">
-            <span className="text-xs text-gray-400 font-medium">Logged in as</span>
-            <span className="text-sm text-gray-200 font-semibold">{user.email}</span>
+            <span className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Logged in as</span>
+            <span className="text-xs text-zinc-300 font-bold">{user.email}</span>
           </div>
+
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-full bg-zinc-900 border border-white/5 text-zinc-400 hover:text-purple-400 hover:bg-zinc-800 transition-all duration-300 cursor-pointer active:scale-[0.98]"
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          >
+            {theme === 'dark' ? (
+              <Sun className="h-4 w-4" strokeWidth={1.5} />
+            ) : (
+              <Moon className="h-4 w-4" strokeWidth={1.5} />
+            )}
+          </button>
           
           <button
             onClick={signOut}
-            className="flex items-center gap-2 rounded-xl bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 transition-all duration-200 cursor-pointer shadow-[0_2px_10px_rgba(239,68,68,0.05)] hover:shadow-[0_2px_15px_rgba(239,68,68,0.15)]"
+            className="flex items-center gap-2 rounded-full bg-zinc-900 px-3.5 py-1.5 text-xs font-semibold text-zinc-400 border border-white/5 hover:text-red-400 hover:border-red-500/25 transition-all duration-300 cursor-pointer hover:bg-red-500/5 active:scale-[0.98]"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
             <span className="hidden xs:inline">Sign Out</span>
           </button>
         </div>

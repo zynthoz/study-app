@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../supabaseClient'
 import {
-  Sparkles,
   Award,
   Loader2,
   ArrowRight,
@@ -12,10 +11,7 @@ import {
   Folder,
   Calendar,
   AlertCircle,
-  TrendingUp,
   Edit2,
-  Layers,
-  FileText,
 } from 'lucide-react'
 
 interface Subject {
@@ -82,6 +78,28 @@ export const Dashboard: React.FC = () => {
   
   // New Edit Subject State
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null)
+
+  // Reusable custom confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    onConfirm: () => void | Promise<void>
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  })
+
+  const openConfirmModal = (title: string, message: string, onConfirm: () => void | Promise<void>) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm,
+    })
+  }
 
   const fetchData = useCallback(async () => {
     if (!user) return
@@ -199,28 +217,30 @@ export const Dashboard: React.FC = () => {
   // Delete Subject Handler
   const handleDeleteSubject = async (subjectId: string, e: React.MouseEvent) => {
     e.stopPropagation() // Prevent row click
-    if (!window.confirm('Are you sure you want to delete this subject? Linked items will be set to unassigned.')) {
-      return
-    }
+    openConfirmModal(
+      'Delete Subject',
+      'Are you sure you want to delete this subject? Linked items will be set to unassigned.',
+      async () => {
+        setDeletingSubjectId(subjectId)
+        try {
+          const { error: deleteError } = await supabase.from('tbl_subjects').delete().eq('id', subjectId)
 
-    setDeletingSubjectId(subjectId)
-    try {
-      const { error: deleteError } = await supabase.from('tbl_subjects').delete().eq('id', subjectId)
+          if (deleteError) throw deleteError
 
-      if (deleteError) throw deleteError
-
-      setSubjects((prev) => prev.filter((s) => s.id !== subjectId))
-      
-      // Update local state relations to be null
-      setMaterials((prev) => prev.map((m) => (m.subject_id === subjectId ? { ...m, subject_id: null } : m)))
-      setNotes((prev) => prev.map((n) => (n.subject_id === subjectId ? { ...n, subject_id: null } : n)))
-      setExams((prev) => prev.map((ex) => (ex.subject_id === subjectId ? { ...ex, subject_id: null } : ex)))
-    } catch (err: any) {
-      console.error('Error deleting subject:', err)
-      setError(err.message || 'Failed to delete subject.')
-    } finally {
-      setDeletingSubjectId(null)
-    }
+          setSubjects((prev) => prev.filter((s) => s.id !== subjectId))
+          
+          // Update local state relations to be null
+          setMaterials((prev) => prev.map((m) => (m.subject_id === subjectId ? { ...m, subject_id: null } : m)))
+          setNotes((prev) => prev.map((n) => (n.subject_id === subjectId ? { ...n, subject_id: null } : n)))
+          setExams((prev) => prev.map((ex) => (ex.subject_id === subjectId ? { ...ex, subject_id: null } : ex)))
+        } catch (err: any) {
+          console.error('Error deleting subject:', err)
+          setError(err.message || 'Failed to delete subject.')
+        } finally {
+          setDeletingSubjectId(null)
+        }
+      }
+    )
   }
 
   // Helpers to count items associated with each subject
@@ -252,14 +272,14 @@ export const Dashboard: React.FC = () => {
   const examsPct = totalItems > 0 ? totalExams / totalItems : 0
 
   const avgExamScore = (() => {
-    if (sessions.length === 0) return 0
+    if (sessions.length === 0) return null
     let totalScore = 0
     let totalQuestions = 0
     sessions.forEach((s) => {
       totalScore += s.score
       totalQuestions += s.total
     })
-    return totalQuestions > 0 ? Math.round((totalScore / totalQuestions) * 100) : 0
+    return totalQuestions > 0 ? Math.round((totalScore / totalQuestions) * 100) : null
   })()
 
   const formatDate = (dateString: string) => {
@@ -271,156 +291,65 @@ export const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-12 space-y-8 animate-fade-in">
-      {/* Welcome Banner */}
-      <div className="glass-card rounded-3xl p-8 sm:p-10 relative overflow-hidden bg-white/[0.01] border-white/5">
-        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-brand-500/10 blur-2xl pointer-events-none"></div>
+    <div className="mx-auto max-w-5xl px-4 sm:px-6 py-12 space-y-12 animate-fade-in">
 
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 rounded-full bg-brand-500/10 px-3 py-1 text-xs font-semibold text-brand-300 border border-brand-500/20">
-              <Sparkles className="h-3 w-3 animate-pulse" />
-              <span>Personalized Learning Command Center</span>
-            </div>
-            <h1 className="font-display text-3xl font-extrabold text-white sm:text-4xl">
-              Welcome back to StudyForge
-            </h1>
-            <p className="text-gray-400 max-w-xl text-sm">
-              Organize your materials by subjects, generate rich text notes, and test yourself with customizable exams.
-            </p>
-          </div>
-          <div className="text-xs text-gray-500 bg-white/5 border border-white/10 px-4 py-2 rounded-xl">
-            Account: <span className="text-gray-200 font-semibold">{user?.email}</span>
-          </div>
-        </div>
-      </div>
 
       {error && (
-        <div className="flex items-start gap-3 rounded-2xl bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400 animate-fade-in">
-          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 rounded-xl bg-red-500/10 border border-red-500/25 p-4 text-xs text-red-400 animate-fade-in">
+          <AlertCircle className="h-4.5 w-4.5 shrink-0 mt-0.5" strokeWidth={1.5} />
           <span>{error}</span>
         </div>
       )}
 
-      {/* 5-Column Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {/* Subjects Stats */}
-        <div className="glass-card rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-violet-500/30 transition-all duration-300 bg-white/[0.01]">
-          <div className="absolute -right-4 -bottom-4 h-16 w-16 rounded-full bg-violet-500/5 group-hover:bg-violet-500/10 blur-xl transition-all"></div>
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Subjects</p>
-            <Folder className="h-4 w-4 text-violet-400" />
-          </div>
-          <div className="my-2">
-            <span className="text-3xl font-black text-white">{loading ? '...' : totalSubjects}</span>
-          </div>
-          <span className="text-[10px] text-gray-400">Organized categories</span>
-        </div>
-
-        {/* Materials Stats */}
-        <Link to="/subjects?tab=files" className="glass-card rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-blue-500/30 transition-all duration-300 bg-white/[0.01]">
-          <div className="absolute -right-4 -bottom-4 h-16 w-16 rounded-full bg-blue-500/5 group-hover:bg-blue-500/10 blur-xl transition-all"></div>
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Materials</p>
-            <Layers className="h-4 w-4 text-blue-400" />
-          </div>
-          <div className="my-2">
-            <span className="text-3xl font-black text-white">{loading ? '...' : totalMaterials}</span>
-          </div>
-          <span className="text-[10px] text-blue-400 hover:underline flex items-center gap-0.5">
-            Manage library <ArrowRight className="h-2.5 w-2.5" />
-          </span>
-        </Link>
-
-        {/* Notes Stats */}
-        <Link to="/subjects?tab=guides" className="glass-card rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-amber-500/30 transition-all duration-300 bg-white/[0.01]">
-          <div className="absolute -right-4 -bottom-4 h-16 w-16 rounded-full bg-amber-500/5 group-hover:bg-amber-500/10 blur-xl transition-all"></div>
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Study Guides</p>
-            <FileText className="h-4 w-4 text-amber-400" />
-          </div>
-          <div className="my-2">
-            <span className="text-3xl font-black text-white">{loading ? '...' : totalNotes}</span>
-          </div>
-          <span className="text-[10px] text-amber-400 hover:underline flex items-center gap-0.5">
-            View notes <ArrowRight className="h-2.5 w-2.5" />
-          </span>
-        </Link>
-
-        {/* Exams Stats */}
-        <Link to="/exams" className="glass-card rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-purple-500/30 transition-all duration-300 bg-white/[0.01]">
-          <div className="absolute -right-4 -bottom-4 h-16 w-16 rounded-full bg-purple-500/5 group-hover:bg-purple-500/10 blur-xl transition-all"></div>
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Exams</p>
-            <Award className="h-4 w-4 text-purple-400" />
-          </div>
-          <div className="my-2">
-            <span className="text-3xl font-black text-white">{loading ? '...' : totalExams}</span>
-          </div>
-          <span className="text-[10px] text-purple-400 hover:underline flex items-center gap-0.5">
-            Take tests <ArrowRight className="h-2.5 w-2.5" />
-          </span>
-        </Link>
-
-        {/* Avg Exam Score */}
-        <Link to="/history" className="glass-card rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300 bg-white/[0.01] col-span-2 md:col-span-1">
-          <div className="absolute -right-4 -bottom-4 h-16 w-16 rounded-full bg-emerald-500/5 group-hover:bg-emerald-500/10 blur-xl transition-all"></div>
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Avg Score</p>
-            <TrendingUp className="h-4 w-4 text-emerald-400" />
-          </div>
-          <div className="my-2 flex items-baseline gap-1">
-            <span className="text-3xl font-black text-white">{loading ? '...' : `${avgExamScore}%`}</span>
-          </div>
-          <span className="text-[10px] text-emerald-400 hover:underline flex items-center gap-0.5">
-            View history <ArrowRight className="h-2.5 w-2.5" />
-          </span>
-        </Link>
-      </div>
-
-      {/* Main Grid: Left Subjects & Charts, Right Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Main Grid Layout: Left col-span-2 (Subjects & Analysis), Right col-span-1 (Console Sidebar) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12 items-start">
         
-        {/* Left Column: Subjects Manager & Analytics */}
-        <div className="lg:col-span-2 space-y-8">
+        {/* Left Side: Subjects and Distribution Analysis */}
+        <div className="lg:col-span-2 space-y-12">
           
-          {/* Subjects Manager Panel */}
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
+          {/* SECTION 01: SUBJECTS CENTRE */}
+          <section className="space-y-6">
+            <div className="h-px w-full bg-white/5" />
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-xl font-extrabold text-white">Your Subjects</h2>
-                <p className="text-xs text-gray-400">Click on File, Guide, or Exam stats to filter items by subject.</p>
+                <h2 className="text-base font-bold text-white tracking-tight">Academic Subjects</h2>
+                <p className="text-xs text-zinc-400">Group your documents, guides, and practice sessions.</p>
               </div>
               <button
                 onClick={openCreateModal}
-                className="flex items-center gap-1.5 rounded-xl bg-brand-500 px-4 py-2 text-xs font-bold text-white hover:bg-brand-600 transition-colors shadow-[0_4px_12px_rgba(139,92,246,0.2)] cursor-pointer"
+                className="flex items-center gap-1.5 rounded-xl bg-[#0d0d11] border border-purple-500/30 hover:border-purple-500/60 hover:bg-purple-500/10 px-4 py-2.5 text-xs font-bold text-purple-300 transition-all duration-300 cursor-pointer active:scale-[0.98] hover:-translate-y-[1px] self-start sm:self-auto"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
                 Add Subject
               </button>
             </div>
 
             {loading ? (
               <div className="flex justify-center items-center py-20">
-                <Loader2 className="h-6 w-6 text-brand-400 animate-spin" />
+                <Loader2 className="h-5 w-5 text-purple-400 animate-spin" strokeWidth={1.5} />
               </div>
             ) : subjects.length === 0 ? (
-              <div className="glass-card rounded-2xl p-12 text-center border-dashed border-white/10">
-                <Folder className="h-10 w-10 text-gray-600 mx-auto mb-3" />
-                <h3 className="text-sm font-bold text-gray-300">No subjects created yet</h3>
-                <p className="text-xs text-gray-500 max-w-xs mx-auto mt-1 mb-4">
-                  Create subjects like "Math", "History", or "Chemistry" to group your documents and notes.
-                </p>
-                <button
-                  onClick={openCreateModal}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-brand-500/10 border border-brand-500/20 px-4 py-2 text-xs font-bold text-brand-400 hover:bg-brand-500/20 transition-all cursor-pointer"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Create your first subject
-                </button>
+              <div className="double-bezel-outer bg-white/[0.005]">
+                <div className="double-bezel-inner p-10 text-center space-y-4">
+                  <Folder className="h-8 w-8 text-zinc-600 mx-auto" strokeWidth={1.2} />
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-bold text-zinc-300">No subjects initialized</h3>
+                    <p className="text-xs text-zinc-400 max-w-xs mx-auto">
+                      Create categories like "Physics" or "Biology" to organize your learning notes.
+                    </p>
+                  </div>
+                  <button
+                    onClick={openCreateModal}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 px-4 py-2 text-xs font-bold text-white transition-all duration-300 cursor-pointer active:scale-[0.98]"
+                  >
+                    <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    Create first subject
+                  </button>
+                </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {subjects.map((subject) => {
                   const stats = getSubjectStats(subject.id)
                   const styles = getSubjectColorStyles(subject.color)
@@ -428,373 +357,457 @@ export const Dashboard: React.FC = () => {
                   return (
                     <div
                       key={subject.id}
-                      className="glass-card rounded-2xl p-5 hover:border-white/20 transition-all flex flex-col justify-between gap-4 group relative overflow-hidden bg-white/[0.01]"
+                      className="double-bezel-outer group hover:border-purple-500/20"
                     >
-                      {/* Header */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <span className={`h-3 w-3 rounded-full ${styles.dot} shadow-sm`} />
-                          <h3 className="font-bold text-white text-base truncate max-w-[150px]" title={subject.name}>
-                            {subject.name}
-                          </h3>
-                        </div>
-                        
-                        {/* Action buttons */}
-                        <div className="flex items-center gap-1">
-                          {/* Edit Button */}
-                          <button
-                            onClick={(e) => openEditModal(subject, e)}
-                            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-gray-500 hover:text-brand-400 hover:bg-brand-500/10 transition-all duration-150 cursor-pointer"
-                            title="Edit Subject"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </button>
+                      <div className="double-bezel-inner p-4 flex flex-col justify-between gap-4 h-full">
+                        {/* Subject Header */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className={`h-2 w-2 rounded-full ${styles.dot} shrink-0`} />
+                            <h3 className="font-bold text-white text-sm truncate" title={subject.name}>
+                              {subject.name}
+                            </h3>
+                          </div>
                           
-                          {/* Delete Action */}
-                          <button
-                            onClick={(e) => handleDeleteSubject(subject.id, e)}
-                            disabled={deletingSubjectId === subject.id}
-                            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-gray-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all duration-150 cursor-pointer disabled:opacity-50"
-                            title="Delete Subject"
-                          >
-                            {deletingSubjectId === subject.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-3.5 w-3.5" />
-                            )}
-                          </button>
+                          {/* Subject Actions */}
+                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <button
+                              onClick={(e) => openEditModal(subject, e)}
+                              className="p-1 rounded-lg text-zinc-500 hover:text-purple-400 hover:bg-purple-500/10 transition-colors cursor-pointer"
+                              title="Edit Subject"
+                            >
+                              <Edit2 className="h-3 w-3" strokeWidth={1.5} />
+                            </button>
+                            <button
+                              onClick={(e) => handleDeleteSubject(subject.id, e)}
+                              disabled={deletingSubjectId === subject.id}
+                              className="p-1 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50"
+                              title="Delete Subject"
+                            >
+                              {deletingSubjectId === subject.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-3 w-3" strokeWidth={1.5} />
+                              )}
+                            </button>
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Stats details */}
-                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/5 text-center text-xs">
-                        <Link
-                          to={`/subjects?id=${subject.id}&tab=files`}
-                          className="rounded-xl py-1 px-0.5 hover:bg-white/5 transition-all text-gray-400 hover:text-white"
-                        >
-                          <p className="text-[10px] text-gray-500 font-semibold">Files</p>
-                          <p className="text-sm font-bold">{stats.materials}</p>
-                        </Link>
-                        <Link
-                          to={`/subjects?id=${subject.id}&tab=guides`}
-                          className="rounded-xl py-1 px-0.5 hover:bg-white/5 transition-all text-gray-400 hover:text-white"
-                        >
-                          <p className="text-[10px] text-gray-500 font-semibold">Guides</p>
-                          <p className="text-sm font-bold">{stats.notes}</p>
-                        </Link>
-                        <Link
-                          to={`/subjects?id=${subject.id}&tab=exams`}
-                          className="rounded-xl py-1 px-0.5 hover:bg-white/5 transition-all text-gray-400 hover:text-white"
-                        >
-                          <p className="text-[10px] text-gray-500 font-semibold">Exams</p>
-                          <p className="text-sm font-bold">{stats.exams}</p>
-                        </Link>
+                        {/* Subject Counts */}
+                        <div className="grid grid-cols-3 gap-1.5 pt-3 border-t border-white/5 text-center text-[10px]">
+                          <Link
+                            to={`/subjects?id=${subject.id}&tab=files`}
+                            className="rounded-lg py-1.5 px-1 bg-white/[0.01] hover:bg-white/5 border border-white/[0.02] text-zinc-300 hover:text-white transition-all duration-200"
+                          >
+                            <p className="text-zinc-400 font-semibold uppercase tracking-wider text-[8px]">Files</p>
+                            <p className="text-xs font-extrabold mt-0.5">{stats.materials}</p>
+                          </Link>
+                          <Link
+                            to={`/subjects?id=${subject.id}&tab=guides`}
+                            className="rounded-lg py-1.5 px-1 bg-white/[0.01] hover:bg-white/5 border border-white/[0.02] text-zinc-300 hover:text-white transition-all duration-200"
+                          >
+                            <p className="text-zinc-400 font-semibold uppercase tracking-wider text-[8px]">Guides</p>
+                            <p className="text-xs font-extrabold mt-0.5">{stats.notes}</p>
+                          </Link>
+                          <Link
+                            to={`/subjects?id=${subject.id}&tab=exams`}
+                            className="rounded-lg py-1.5 px-1 bg-white/[0.01] hover:bg-white/5 border border-white/[0.02] text-zinc-300 hover:text-white transition-all duration-200"
+                          >
+                            <p className="text-zinc-400 font-semibold uppercase tracking-wider text-[8px]">Exams</p>
+                            <p className="text-xs font-extrabold mt-0.5">{stats.exams}</p>
+                          </Link>
+                        </div>
                       </div>
                     </div>
                   )
                 })}
               </div>
             )}
-          </div>
+          </section>
 
-          {/* Analytics / Dynamic Chart Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            {/* Donut Chart Card */}
-            <div className="glass-card rounded-3xl p-6 bg-white/[0.01] border-white/5 space-y-4">
-              <div>
-                <h3 className="font-bold text-white text-base">Workspace Distribution</h3>
-                <p className="text-[11px] text-gray-500">Breakdown of study items in your command center.</p>
-              </div>
-              
-              <div className="flex items-center justify-around gap-4 py-2">
-                {/* SVG Donut */}
-                <div className="relative h-32 w-32 shrink-0">
-                  {totalItems > 0 ? (
-                    <svg className="w-full h-full" viewBox="0 0 160 160">
-                      {/* Background circle */}
-                      <circle
-                        cx="80"
-                        cy="80"
-                        r="50"
-                        className="stroke-white/5 fill-transparent"
-                        strokeWidth="12"
-                      />
-                      {/* Materials slice */}
-                      {materialsPct > 0 && (
-                        <circle
-                          cx="80"
-                          cy="80"
-                          r="50"
-                          className="stroke-blue-500 fill-transparent transition-all duration-500"
-                          strokeWidth="12"
-                          strokeDasharray={`${314.159 * materialsPct} ${314.159 * (1 - materialsPct)}`}
-                          strokeDashoffset="0"
-                          transform="rotate(-90 80 80)"
-                          strokeLinecap="round"
-                        />
+          {/* SECTION 02: DIAGNOSTICS & ACTIONS */}
+          <section className="space-y-6">
+            <div className="h-px w-full bg-white/5" />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Distribution Analysis */}
+              <div className="double-bezel-outer">
+                <div className="double-bezel-inner p-5 space-y-4">
+                  <div>
+                    <h3 className="font-bold text-white text-sm tracking-tight">Distribution Analysis</h3>
+                    <p className="text-[10px] text-zinc-400">Overview of active learning components.</p>
+                  </div>
+                  
+                  <div className="flex items-center justify-around gap-4 py-1">
+                    {/* SVG Chart */}
+                    <div className="relative h-28 w-28 shrink-0">
+                      {totalItems > 0 ? (
+                        <svg className="w-full h-full" viewBox="0 0 160 160">
+                          <circle
+                            cx="80"
+                            cy="80"
+                            r="52"
+                            className="stroke-white/5 fill-transparent"
+                            strokeWidth="10"
+                          />
+                          {/* Materials */}
+                          {materialsPct > 0 && (
+                            <circle
+                              cx="80"
+                              cy="80"
+                              r="52"
+                              className="stroke-purple-400 fill-transparent transition-all duration-500"
+                              strokeWidth="10"
+                              strokeDasharray={`${326.72 * materialsPct} ${326.72 * (1 - materialsPct)}`}
+                              strokeDashoffset="0"
+                              transform="rotate(-90 80 80)"
+                              strokeLinecap="round"
+                            />
+                          )}
+                          {/* Notes */}
+                          {notesPct > 0 && (
+                            <circle
+                              cx="80"
+                              cy="80"
+                              r="52"
+                              className="stroke-zinc-500 fill-transparent transition-all duration-500"
+                              strokeWidth="10"
+                              strokeDasharray={`${326.72 * notesPct} ${326.72 * (1 - notesPct)}`}
+                              strokeDashoffset={-(326.72 * materialsPct)}
+                              transform="rotate(-90 80 80)"
+                              strokeLinecap="round"
+                            />
+                          )}
+                          {/* Exams */}
+                          {examsPct > 0 && (
+                            <circle
+                              cx="80"
+                              cy="80"
+                              r="52"
+                              className="stroke-zinc-300 fill-transparent transition-all duration-500"
+                              strokeWidth="10"
+                              strokeDasharray={`${326.72 * examsPct} ${326.72 * (1 - examsPct)}`}
+                              strokeDashoffset={-(326.72 * (materialsPct + notesPct))}
+                              transform="rotate(-90 80 80)"
+                              strokeLinecap="round"
+                            />
+                          )}
+                          <text x="80" y="76" textAnchor="middle" className="text-xl font-extrabold text-white fill-current font-display tracking-tighter">
+                            {totalItems}
+                          </text>
+                          <text x="80" y="94" textAnchor="middle" className="text-[8px] text-zinc-500 fill-current font-bold uppercase tracking-widest">
+                            Items
+                          </text>
+                        </svg>
+                      ) : (
+                        <svg className="w-full h-full" viewBox="0 0 160 160">
+                          <circle
+                            cx="80"
+                            cy="80"
+                            r="52"
+                            className="stroke-white/5 fill-transparent"
+                            strokeWidth="10"
+                          />
+                          <text x="80" y="85" textAnchor="middle" className="text-xs font-bold text-zinc-600 fill-current font-mono uppercase tracking-widest">
+                            Empty
+                          </text>
+                        </svg>
                       )}
-                      {/* Notes slice */}
-                      {notesPct > 0 && (
-                        <circle
-                          cx="80"
-                          cy="80"
-                          r="50"
-                          className="stroke-amber-500 fill-transparent transition-all duration-500"
-                          strokeWidth="12"
-                          strokeDasharray={`${314.159 * notesPct} ${314.159 * (1 - notesPct)}`}
-                          strokeDashoffset={-(314.159 * materialsPct)}
-                          transform="rotate(-90 80 80)"
-                          strokeLinecap="round"
-                        />
-                      )}
-                      {/* Exams slice */}
-                      {examsPct > 0 && (
-                        <circle
-                          cx="80"
-                          cy="80"
-                          r="50"
-                          className="stroke-purple-500 fill-transparent transition-all duration-500"
-                          strokeWidth="12"
-                          strokeDasharray={`${314.159 * examsPct} ${314.159 * (1 - examsPct)}`}
-                          strokeDashoffset={-(314.159 * (materialsPct + notesPct))}
-                          transform="rotate(-90 80 80)"
-                          strokeLinecap="round"
-                        />
-                      )}
-                      <text x="80" y="78" textAnchor="middle" className="text-2xl font-black text-white fill-current font-display">
-                        {totalItems}
-                      </text>
-                      <text x="80" y="96" textAnchor="middle" className="text-[9px] text-gray-500 fill-current font-bold uppercase tracking-wider">
-                        Items
-                      </text>
-                    </svg>
-                  ) : (
-                    <svg className="w-full h-full" viewBox="0 0 160 160">
-                      <circle
-                        cx="80"
-                        cy="80"
-                        r="50"
-                        className="stroke-white/5 fill-transparent"
-                        strokeWidth="12"
-                      />
-                      <text x="80" y="78" textAnchor="middle" className="text-2xl font-black text-gray-600 fill-current font-display">
-                        0
-                      </text>
-                      <text x="80" y="96" textAnchor="middle" className="text-[9px] text-gray-600 fill-current font-bold uppercase tracking-wider">
-                        Empty
-                      </text>
-                    </svg>
-                  )}
+                    </div>
+                    
+                    {/* Chart Legend */}
+                    <div className="space-y-2 text-[10px] shrink-0 font-medium">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-purple-400 shrink-0" />
+                        <div>
+                          <p className="text-zinc-400 font-semibold uppercase text-[8px] tracking-wider">Files</p>
+                          <p className="font-extrabold text-zinc-100 mt-0.5">{totalMaterials} ({Math.round(materialsPct * 100)}%)</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-zinc-500 shrink-0" />
+                        <div>
+                          <p className="text-zinc-400 font-semibold uppercase text-[8px] tracking-wider">Guides</p>
+                          <p className="font-extrabold text-zinc-100 mt-0.5">{totalNotes} ({Math.round(notesPct * 100)}%)</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-zinc-300 shrink-0" />
+                        <div>
+                          <p className="text-zinc-400 font-semibold uppercase text-[8px] tracking-wider">Exams</p>
+                          <p className="font-extrabold text-zinc-100 mt-0.5">{totalExams} ({Math.round(examsPct * 100)}%)</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                
-                {/* Legend */}
-                <div className="space-y-2 text-xs shrink-0">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full bg-blue-500 shrink-0" />
-                    <div>
-                      <p className="text-gray-400 font-semibold text-[10px]">Files</p>
-                      <p className="font-bold text-white text-[11px]">{totalMaterials} ({Math.round(materialsPct * 100)}%)</p>
+              </div>
+
+              {/* Next Steps Tip */}
+              <div className="double-bezel-outer">
+                <div className="double-bezel-inner p-5 flex flex-col justify-between h-full gap-4">
+                  <div className="space-y-2">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-950/30 px-2 py-0.5 text-[8px] font-bold text-emerald-300 border border-emerald-900/30 uppercase tracking-widest animate-pulse">
+                      <span>Active Suggestions</span>
                     </div>
+                    <h3 className="font-bold text-white text-sm tracking-tight">Workspace Action</h3>
+                    <p className="text-xs text-zinc-300 leading-relaxed font-medium">
+                      {totalMaterials === 0
+                        ? "Start by uploading your learning documents or text materials in the Subjects manager."
+                        : totalNotes === 0
+                        ? "Synthesize your parsed sources into a structured Study Guide notes sheet."
+                        : "Evaluate your retention rate by taking a custom generated practice exam."}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shrink-0" />
-                    <div>
-                      <p className="text-gray-400 font-semibold text-[10px]">Guides</p>
-                      <p className="font-bold text-white text-[11px]">{totalNotes} ({Math.round(notesPct * 100)}%)</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full bg-purple-500 shrink-0" />
-                    <div>
-                      <p className="text-gray-400 font-semibold text-[10px]">Exams</p>
-                      <p className="font-bold text-white text-[11px]">{totalExams} ({Math.round(examsPct * 100)}%)</p>
-                    </div>
-                  </div>
+                  
+                  <Link
+                    to={totalMaterials === 0 ? "/subjects?tab=files" : totalNotes === 0 ? "/subjects?tab=guides" : "/exams"}
+                    className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 px-4 py-2.5 text-xs font-bold text-white transition-all duration-300 cursor-pointer active:scale-[0.98]"
+                  >
+                    <span className="text-[11px]">
+                      {totalMaterials === 0 ? "Upload Documents" : totalNotes === 0 ? "Generate Study Guide" : "Start Practice Session"}
+                    </span>
+                    <ArrowRight className="h-3 w-3" strokeWidth={1.5} />
+                  </Link>
                 </div>
               </div>
             </div>
-
-            {/* Quick Action / Suggestion Card */}
-            <div className="glass-card rounded-3xl p-6 bg-white/[0.01] border-white/5 flex flex-col justify-between gap-4">
-              <div>
-                <div className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/20 mb-2">
-                  <TrendingUp className="h-3 w-3 animate-pulse" />
-                  <span>Forge Tips</span>
-                </div>
-                <h3 className="font-bold text-white text-base">Next Steps</h3>
-                <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-                  {totalMaterials === 0
-                    ? "Start by uploading your course materials, slides, or documents in the Materials tab."
-                    : totalNotes === 0
-                    ? "Synthesize your lecture materials into an interactive Study Guide for better recall."
-                    : "Challenge yourself! Generate a practice exam from your documents to measure retention."}
-                </p>
-              </div>
-              
-              <Link
-                to={totalMaterials === 0 ? "/subjects?tab=files" : totalNotes === 0 ? "/subjects?tab=guides" : "/exams"}
-                className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 px-4 py-2.5 text-xs font-bold text-white transition-all cursor-pointer"
-              >
-                <span>{totalMaterials === 0 ? "Upload Material" : totalNotes === 0 ? "Generate Study Guide" : "Start Practice Exam"}</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          </div>
+          </section>
         </div>
 
-        {/* Right Column: Recent Activity */}
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-xl font-extrabold text-white">Recent Attempts</h2>
-            <p className="text-xs text-gray-400">Quick link to your recent performance reports.</p>
-          </div>
+        {/* Right Side: Console Sidebar Panel */}
+        <div className="space-y-12">
+          
+          {/* SECTION 03: SYSTEM TELEMETRY */}
+          <section className="space-y-6">
+            <div className="h-px w-full bg-white/5" />
 
-          {loading ? (
-            <div className="flex justify-center items-center py-20">
-              <Loader2 className="h-6 w-6 text-brand-400 animate-spin" />
-            </div>
-          ) : sessions.length === 0 ? (
-            <div className="glass-card rounded-2xl p-10 text-center text-gray-500 text-xs">
-              <Award className="h-8 w-8 text-gray-600 mx-auto mb-2" />
-              No exam attempts recorded.
-              <Link to="/exams" className="text-brand-400 hover:underline block mt-2 font-bold">
-                Start an exam &rarr;
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {sessions.slice(0, 4).map((session) => {
-                const percentage = Math.round((session.score / session.total) * 100)
-                const examTitle = session.tbl_exams?.title || 'Deleted Exam'
-                
-                // Color badges
-                let gradeColor = 'text-rose-400 bg-rose-500/10 border-rose-500/20'
-                if (percentage >= 85) gradeColor = 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
-                else if (percentage >= 70) gradeColor = 'text-blue-400 bg-blue-500/10 border-blue-500/20'
-                else if (percentage >= 50) gradeColor = 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+            <div className="double-bezel-outer">
+              <div className="double-bezel-inner p-5 space-y-4">
+                <div>
+                  <h3 className="font-bold text-white text-sm tracking-tight">Workspace Console</h3>
+                  <p className="text-[10px] text-zinc-400">Live indicators of repository data.</p>
+                </div>
 
-                return (
-                  <div
-                    key={session.id}
-                    onClick={() => navigate(`/exams/session/${session.id}?history=true`)}
-                    className="glass-card rounded-xl p-4 flex items-center justify-between gap-3 cursor-pointer hover:border-white/10 hover:bg-white/[0.02] transition-all duration-200 group"
-                  >
-                    <div className="min-w-0 space-y-1">
-                      <h4 className="text-sm font-bold text-white group-hover:text-brand-300 transition-colors truncate">
-                        {examTitle}
-                      </h4>
-                      <p className="text-[10px] text-gray-500 flex items-center gap-1.5">
-                        <Calendar className="h-3 w-3" />
-                        {formatDate(session.completed_at)}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2.5 shrink-0">
-                      <div className="text-right text-xs">
-                        <span className="text-[10px] text-gray-500 block">Score</span>
-                        <span className="font-bold text-gray-200">{session.score}/{session.total}</span>
-                      </div>
-                      <span className={`text-xs font-black px-2 py-0.5 rounded-full border ${gradeColor}`}>
-                        {percentage}%
-                      </span>
-                    </div>
+                <div className="space-y-3 pt-2">
+                  {/* Metric Items */}
+                  <div className="flex items-center justify-between text-xs py-1.5 border-b border-white/5">
+                    <span className="text-zinc-400 font-semibold">Subjects Total</span>
+                    <span className="font-bold text-white font-mono">{loading ? '—' : totalSubjects}</span>
                   </div>
-                )
-              })}
+                  <div className="flex items-center justify-between text-xs py-1.5 border-b border-white/5">
+                    <span className="text-zinc-400 font-semibold">Source Materials</span>
+                    <span className="font-bold text-white font-mono">{loading ? '—' : totalMaterials}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs py-1.5 border-b border-white/5">
+                    <span className="text-zinc-400 font-semibold">Study Guides</span>
+                    <span className="font-bold text-white font-mono">{loading ? '—' : totalNotes}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs py-1.5 border-b border-white/5">
+                    <span className="text-zinc-400 font-semibold">Practice Exams</span>
+                    <span className="font-bold text-white font-mono">{loading ? '—' : totalExams}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs py-1.5">
+                    <span className="text-zinc-400 font-semibold">Average Retention</span>
+                    <span className="font-bold text-purple-300 font-mono">
+                      {loading ? '—' : avgExamScore !== null ? `${avgExamScore}%` : '—'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
 
-              {sessions.length > 4 && (
-                <Link
-                  to="/history"
-                  className="inline-flex items-center gap-1 text-xs text-brand-400 hover:text-brand-300 font-bold hover:underline"
-                >
-                  View all {sessions.length} attempts <ArrowRight className="h-3 w-3" />
-                </Link>
+          {/* SECTION 04: EVALUATION HISTORY */}
+          <section className="space-y-6">
+            <div className="h-px w-full bg-white/5" />
+
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-white tracking-tight">Recent Sessions</h3>
+                <p className="text-[10px] text-zinc-400">Performance ratings from recent evaluations.</p>
+              </div>
+
+              {loading ? (
+                <div className="flex justify-center items-center py-10">
+                  <Loader2 className="h-5 w-5 text-purple-400 animate-spin" strokeWidth={1.5} />
+                </div>
+              ) : sessions.length === 0 ? (
+                <div className="double-bezel-outer bg-white/[0.005]">
+                  <div className="double-bezel-inner p-6 text-center text-xs text-zinc-500 space-y-2">
+                    <Award className="h-6 w-6 text-zinc-600 mx-auto" strokeWidth={1.5} />
+                    <p>No exams attempted yet.</p>
+                    <Link to="/exams" className="text-purple-400 font-bold hover:underline block mt-1">
+                      Take an exam &rarr;
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {sessions.slice(0, 4).map((session) => {
+                    const percentage = Math.round((session.score / session.total) * 100)
+                    const examTitle = session.tbl_exams?.title || 'Deleted Exam'
+                    
+                    let gradeColor = 'text-rose-400 bg-rose-500/10 border-rose-500/20'
+                    if (percentage >= 85) gradeColor = 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                    else if (percentage >= 70) gradeColor = 'text-blue-400 bg-blue-500/10 border-blue-500/20'
+                    else if (percentage >= 50) gradeColor = 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+
+                    return (
+                      <div
+                        key={session.id}
+                        onClick={() => navigate(`/exams/session/${session.id}?history=true`)}
+                        className="double-bezel-outer cursor-pointer hover:border-white/10 active:scale-[0.99]"
+                      >
+                        <div className="double-bezel-inner p-3 flex items-center justify-between gap-3">
+                          <div className="min-w-0 space-y-1">
+                            <h4 className="text-xs font-bold text-zinc-200 truncate">
+                              {examTitle}
+                            </h4>
+                            <p className="text-[9px] text-zinc-400 flex items-center gap-1">
+                              <Calendar className="h-3.5 w-3.5" strokeWidth={1.5} />
+                              {formatDate(session.completed_at)}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="text-right text-[10px]">
+                              <span className="text-[8px] text-zinc-400 block uppercase font-semibold">Raw</span>
+                              <span className="font-bold text-zinc-300 font-mono">{session.score}/{session.total}</span>
+                            </div>
+                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${gradeColor}`}>
+                              {percentage}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {sessions.length > 4 && (
+                    <Link
+                      to="/history"
+                      className="inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 font-bold hover:underline mt-1"
+                    >
+                      View all {sessions.length} sessions <ArrowRight className="h-3 w-3" strokeWidth={1.5} />
+                    </Link>
+                  )}
+                </div>
               )}
             </div>
-          )}
+          </section>
         </div>
       </div>
 
       {/* Create / Edit Subject Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/75 backdrop-blur-sm transition-opacity"
+            className="absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity"
             onClick={closeModal}
           ></div>
 
-          {/* Modal Content */}
-          <div className="glass-card rounded-2xl p-6 max-w-md w-full relative z-10 border-white/10 shadow-2xl animate-fade-in space-y-6 bg-[#0c101c]">
-            <div className="flex items-center justify-between pb-3 border-b border-white/5">
-              <h3 className="text-lg font-extrabold text-white">
-                {editingSubject ? 'Edit Subject' : 'Create New Subject'}
-              </h3>
-              <button
-                onClick={closeModal}
-                className="text-gray-500 hover:text-white transition-colors cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveSubject} className="space-y-5">
-              {/* Name field */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-400">Subject Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g., Biology, World History, Calculus"
-                  value={newSubjectName}
-                  onChange={(e) => setNewSubjectName(e.target.value)}
-                  className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-brand-500/50"
-                  maxLength={50}
-                />
-              </div>
-
-              {/* Color presets selection */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-gray-400">Subject Theme Color</label>
-                <div className="flex items-center gap-3">
-                  {COLOR_PRESETS.map((preset) => {
-                    const isSelected = selectedColor === preset.name
-                    return (
-                      <button
-                        key={preset.name}
-                        type="button"
-                        onClick={() => setSelectedColor(preset.name)}
-                        className={`h-8 w-8 rounded-full ${preset.dot} flex items-center justify-center relative cursor-pointer hover:scale-105 transition-all
-                          ${isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-[#0c101c]' : ''}
-                        `}
-                      >
-                        {isSelected && <span className="h-1.5 w-1.5 bg-white rounded-full" />}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Submit & Cancel */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/5">
+          <div className="double-bezel-outer max-w-sm w-full relative z-10">
+            <div className="double-bezel-inner p-6 space-y-6">
+              <div className="flex items-center justify-between pb-3 border-b border-white/5">
+                <h3 className="text-base font-bold text-white tracking-tight">
+                  {editingSubject ? 'Modify Subject' : 'Initialize Subject'}
+                </h3>
                 <button
-                  type="button"
                   onClick={closeModal}
-                  className="rounded-xl px-4 py-2.5 text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                  className="text-zinc-500 hover:text-white transition-colors cursor-pointer text-sm font-semibold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveSubject} className="space-y-5">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Subject Title</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g., world history, biology"
+                    value={newSubjectName}
+                    onChange={(e) => setNewSubjectName(e.target.value)}
+                    className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-xs text-white placeholder-zinc-700 focus:outline-none focus:border-purple-500/50"
+                    maxLength={50}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Theme Identifier</label>
+                  <div className="flex items-center gap-2.5">
+                    {COLOR_PRESETS.map((preset) => {
+                      const isSelected = selectedColor === preset.name
+                      return (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => setSelectedColor(preset.name)}
+                          className={`h-7 w-7 rounded-full ${preset.dot} flex items-center justify-center relative cursor-pointer hover:scale-105 transition-all
+                            ${isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-[#08080a]' : ''}
+                          `}
+                        >
+                          {isSelected && <span className="h-1.5 w-1.5 bg-white rounded-full" />}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/5">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="rounded-xl px-4 py-2.5 text-xs font-semibold text-zinc-500 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creating}
+                    className="flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {creating && <Loader2 className="h-3 w-3 animate-spin" />}
+                    {editingSubject ? 'Update' : 'Create'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM CONFIRMATION MODAL */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md animate-fade-in" onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}></div>
+          <div className="double-bezel-outer max-w-xs w-full relative z-10">
+            <div className="double-bezel-inner p-6 space-y-6">
+              <div className="space-y-2">
+                <h3 className="text-sm font-bold text-white tracking-tight">{confirmModal.title}</h3>
+                <p className="text-xs text-zinc-400 leading-relaxed font-medium">{confirmModal.message}</p>
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/5">
+                <button
+                  onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                  className="rounded-xl px-4 py-2.5 text-xs font-semibold text-zinc-500 hover:text-white hover:bg-white/5 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:outline-none"
                 >
                   Cancel
                 </button>
                 <button
-                  type="submit"
-                  disabled={creating}
-                  className="flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-xs font-bold text-white bg-brand-500 hover:bg-brand-600 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={async () => {
+                    const onConfirm = confirmModal.onConfirm
+                    setConfirmModal(prev => ({ ...prev, isOpen: false }))
+                    await onConfirm()
+                  }}
+                  className="rounded-xl px-5 py-2.5 text-xs font-bold text-white bg-red-600 hover:bg-red-500 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
                 >
-                  {creating && <Loader2 className="h-3 w-3 animate-spin" />}
-                  {editingSubject ? 'Save Changes' : 'Create Subject'}
+                  Confirm
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

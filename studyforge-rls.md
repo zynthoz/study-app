@@ -21,6 +21,11 @@ CREATE POLICY "Users can insert own materials"
 CREATE POLICY "Users can delete own materials"
   ON tbl_materials FOR DELETE
   USING (auth.uid() = user_id);
+
+-- Users can update their own materials
+CREATE POLICY "Users can update own materials"
+  ON tbl_materials FOR UPDATE
+  USING (auth.uid() = user_id);
 ```
 
 ### 2. Enable RLS on other tables (for future phases)
@@ -43,6 +48,8 @@ CREATE POLICY "Users can read own exams"
   ON tbl_exams FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own exams"
   ON tbl_exams FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own exams"
+  ON tbl_exams FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own exams"
   ON tbl_exams FOR DELETE USING (auth.uid() = user_id);
 

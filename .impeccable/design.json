@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-02T10:00:00Z",
+  "title": "Design System: StudyForge",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Nebula Violet", "canonical": "oklch(58.71% 0.222 289)", "tonalRamp": ["#2e1065", "#4c1d95", "#5b21b6", "#6d28d9", "#7c3aed", "#8b5cf6", "#a78bfa", "#c084fc"] },
+      "primary-light": { "role": "accent", "displayName": "Nebula Spark", "canonical": "oklch(71.2% 0.198 290)", "tonalRamp": ["#4c1d95", "#5b21b6", "#6d28d9", "#7c3aed", "#8b5cf6", "#a78bfa", "#c084fc", "#ede9fe"] },
+      "neutral-bg": { "role": "background", "displayName": "Deep Void", "canonical": "oklch(12% 0.015 250)", "tonalRamp": ["#020408", "#04060b", "#06090f", "#080c14", "#0f1522", "#182133", "#232e47", "#313f5d"] },
+      "neutral-surface": { "role": "surface", "displayName": "Nebula Glass", "canonical": "rgba(17, 24, 39, 0.45)", "tonalRamp": ["rgba(17, 24, 39, 0.95)", "rgba(17, 24, 39, 0.8)", "rgba(17, 24, 39, 0.65)", "rgba(17, 24, 39, 0.5)", "rgba(17, 24, 39, 0.45)", "rgba(17, 24, 39, 0.3)", "rgba(17, 24, 39, 0.15)", "rgba(17, 24, 39, 0.05)"] },
+      "neutral-ink": { "role": "ink", "displayName": "Star Ink", "canonical": "oklch(95% 0.005 250)", "tonalRamp": ["#111827", "#1f2937", "#374151", "#4b5563", "#6b7280", "#9ca3af", "#d1d5db", "#f3f4f6"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Outfit Display", "purpose": "Main display page titles and headers." },
+      "body": { "displayName": "Inter Body", "purpose": "Markdown study notes, exam questions, and UI labels." }
+    },
+    "shadows": [
+      { "name": "ambient-low", "value": "0 10px 40px -10px rgba(0, 0, 0, 0.5)", "purpose": "Ambient depth blur beneath glass dashboard cards." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Default easing for all card lifts and state transitions." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Standard call-to-action button for initiating study sessions, uploads, or exams.",
+      "html": "<button class=\"ds-btn-primary\">Start Session</button>",
+      "css": ".ds-btn-primary { background: #8b5cf6; color: #f3f4f6; padding: 10px 20px; font-family: 'Inter', sans-serif; font-weight: 500; font-size: 1rem; border: none; border-radius: 8px; cursor: pointer; transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-primary:hover { background-color: #7c3aed; transform: translateY(-1px); }"
+    },
+    {
+      "name": "Glass Card",
+      "kind": "card",
+      "refersTo": "neutral-surface",
+      "description": "Unified dashboard card container for grouping content like notes, files, or exams.",
+      "html": "<div class=\"ds-card-glass\"><h3 class=\"ds-card-title\">Subject Note</h3><p class=\"ds-card-desc\">Synthesized notes ready to review.</p></div>",
+      "css": ".ds-card-glass { background: rgba(17, 24, 39, 0.45); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 10px 40px -10px rgba(0,0,0,0.5); padding: 24px; border-radius: 12px; transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease; } .ds-card-glass:hover { border-color: rgba(255, 255, 255, 0.12); box-shadow: 0 12px 45px -8px rgba(0,0,0,0.6); transform: translateY(-2px); } .ds-card-title { font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 600; color: #f3f4f6; margin: 0 0 8px 0; } .ds-card-desc { font-family: 'Inter', sans-serif; font-size: 0.875rem; color: #9ca3af; margin: 0; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Intellectual Nebula",
+    "overview": "StudyForge is designed as a focused, premium, and distraction-free dark study environment. Visually, it evokes the depth of a starry night sky using a dark background (#080c14) accented by glowing violet nebula clouds (brand purple colors) and glassmorphic card overlays that structure information without creating rigid walls.",
+    "keyCharacteristics": [
+      "Dark Mode Void: Main background is deep void black (#080c14).",
+      "Glassmorphism: Cards use blurred backgrounds (rgba(17, 24, 39, 0.45) with 20px blur) to float content elegantly.",
+      "Clean Hierarchy: High weight contrast between Outfit display headers and Inter body text."
+    ],
+    "rules": [
+      { "name": "The Contrast Rule", "body": "Text colors must maintain at least a 4.5:1 contrast ratio against the background. Text styling should not use low-contrast gray colors on card surfaces.", "section": "colors" },
+      { "name": "The Reading Length Rule", "body": "Long-form generated study notes must be bounded to a max-width of 75ch to prevent scanning fatigue.", "section": "typography" },
+      { "name": "The State Elevation Rule", "body": "Shadows are response-only. Cards and buttons lift slightly (Y-translation -2px) and receive increased shadow blur only on hover.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do wrap note text at 75ch to make reading easier.",
+      "Do use native dialogs or absolute-positioned dropdowns outside overflow-hidden wrappers.",
+      "Do preserve the deep void background (#080c14) for all main screens."
+    ],
+    "donts": [
+      "Don't use overly rounded corners (exceeding 12px) on cards or panels.",
+      "Don't use side-stripe borders as colored accents on cards.",
+      "Don't use gradient text effects.",
+      "Don't use saturated warm cream or sand backgrounds."
+    ]
+  }
+}

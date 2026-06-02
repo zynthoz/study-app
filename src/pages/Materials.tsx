@@ -342,13 +342,13 @@ export const Materials: React.FC = () => {
 
       {/* Alerts */}
       {error && (
-        <div className="mb-6 flex items-start gap-3 rounded-2xl bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400 animate-fade-in">
+        <div className="mb-6 flex items-start gap-3 rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400 animate-fade-in">
           <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
       )}
       {success && (
-        <div className="mb-6 flex items-start gap-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-sm text-emerald-400 animate-fade-in">
+        <div className="mb-6 flex items-start gap-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-4 text-sm text-emerald-400 animate-fade-in">
           <CheckCircle className="h-5 w-5 shrink-0 mt-0.5" />
           <span>{success}</span>
         </div>
@@ -379,7 +379,7 @@ export const Materials: React.FC = () => {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => !uploading && fileInputRef.current?.click()}
-        className={`glass-card rounded-3xl p-10 mb-8 cursor-pointer transition-all duration-300 relative overflow-hidden group
+        className={`glass-card rounded-xl p-10 mb-8 cursor-pointer transition-all duration-300 relative overflow-hidden group
           ${dragOver
             ? 'border-brand-400/60 bg-brand-500/10 shadow-[0_0_30px_rgba(139,92,246,0.15)]'
             : 'hover:border-white/12'
@@ -400,7 +400,7 @@ export const Materials: React.FC = () => {
         <div className="flex flex-col items-center justify-center text-center">
           {uploading ? (
             <>
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-500/10 border border-brand-500/20">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-brand-500/10 border border-brand-500/20">
                 <Loader2 className="h-8 w-8 text-brand-400 animate-spin" />
               </div>
               <p className="font-display text-lg font-bold text-white">
@@ -413,7 +413,7 @@ export const Materials: React.FC = () => {
           ) : (
             <>
               <div
-                className={`mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border transition-all duration-300
+                className={`mb-4 flex h-16 w-16 items-center justify-center rounded-xl border transition-all duration-300
                   ${dragOver
                     ? 'bg-brand-500/20 border-brand-500/40 shadow-[0_0_20px_rgba(139,92,246,0.3)]'
                     : 'bg-brand-500/10 border-brand-500/20 group-hover:bg-brand-500/15 group-hover:border-brand-500/30'
@@ -475,7 +475,7 @@ export const Materials: React.FC = () => {
             <Loader2 className="h-8 w-8 text-brand-400 animate-spin" />
           </div>
         ) : materials.length === 0 ? (
-          <div className="glass-card rounded-2xl p-12 text-center">
+          <div className="glass-card rounded-xl p-12 text-center">
             <div className="mb-4 flex h-14 w-14 mx-auto items-center justify-center rounded-xl bg-gray-500/10 border border-gray-500/20">
               <Upload className="h-6 w-6 text-gray-500" />
             </div>
@@ -487,7 +487,7 @@ export const Materials: React.FC = () => {
             </p>
           </div>
         ) : filteredMaterials.length === 0 ? (
-          <div className="glass-card rounded-2xl p-12 text-center">
+          <div className="glass-card rounded-xl p-12 text-center">
             <div className="mb-4 flex h-14 w-14 mx-auto items-center justify-center rounded-xl bg-gray-500/10 border border-gray-500/20">
               <Filter className="h-6 w-6 text-gray-500" />
             </div>
@@ -506,7 +506,7 @@ export const Materials: React.FC = () => {
             return (
               <div
                 key={material.id}
-                className="glass-card rounded-2xl p-5 flex items-center gap-4 group transition-all duration-200"
+                className="glass-card rounded-xl p-5 flex items-center gap-4 group transition-all duration-200"
               >
                 {/* File type icon */}
                 <div

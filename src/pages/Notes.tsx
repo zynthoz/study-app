@@ -76,6 +76,28 @@ export const Notes: React.FC = () => {
   }
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  // Reusable custom confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    onConfirm: () => void | Promise<void>
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  })
+
+  const openConfirmModal = (title: string, message: string, onConfirm: () => void | Promise<void>) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm,
+    })
+  }
   
   // Modal & Generation States
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -148,24 +170,30 @@ export const Notes: React.FC = () => {
     e.preventDefault() // Prevent navigation to detail page
     e.stopPropagation()
     
-    if (!window.confirm(`Are you sure you want to delete "${title}"?`)) return
-    
-    setDeletingId(noteId)
-    setError(null)
-    try {
-      const { error: deleteError } = await supabase
-        .from('tbl_notes')
-        .delete()
-        .eq('id', noteId)
+    openConfirmModal(
+      'Delete Study Guide',
+      `Are you sure you want to delete "${title}"? This action is permanent.`,
+      async () => {
+        setDeletingId(noteId)
+        setError(null)
+        try {
+          const { error: deleteError } = await supabase
+            .from('tbl_notes')
+            .delete()
+            .eq('id', noteId)
 
-      if (deleteError) throw deleteError
-      setNotes((prev) => prev.filter((n) => n.id !== noteId))
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete note')
-    } finally {
-      setDeletingId(null)
-    }
+          if (deleteError) throw deleteError
+          setNotes((prev) => prev.filter((n) => n.id !== noteId))
+        } catch (err: any) {
+          setError(err.message || 'Failed to delete note')
+        } finally {
+          setDeletingId(null)
+        }
+      }
+    )
   }
+  
+
 
   // Toggle material selection
   const toggleMaterial = (id: string) => {
@@ -257,7 +285,7 @@ export const Notes: React.FC = () => {
 
       {/* Error Alert */}
       {error && !generating && (
-        <div className="mb-6 flex items-start gap-3 rounded-2xl bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400 animate-fade-in">
+        <div className="mb-6 flex items-start gap-3 rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400 animate-fade-in">
           <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
@@ -296,7 +324,7 @@ export const Notes: React.FC = () => {
           <Loader2 className="h-8 w-8 text-brand-400 animate-spin" />
         </div>
       ) : notes.length === 0 ? (
-        <div className="glass-card rounded-2xl p-16 text-center">
+        <div className="glass-card rounded-xl p-16 text-center">
           <div className="mb-4 flex h-14 w-14 mx-auto items-center justify-center rounded-xl bg-brand-500/10 border border-brand-500/20">
             <FileText className="h-6 w-6 text-brand-400" />
           </div>
@@ -308,7 +336,7 @@ export const Notes: React.FC = () => {
           </p>
         </div>
       ) : filteredNotes.length === 0 ? (
-        <div className="glass-card rounded-2xl p-16 text-center">
+        <div className="glass-card rounded-xl p-16 text-center">
           <div className="mb-4 flex h-14 w-14 mx-auto items-center justify-center rounded-xl bg-brand-500/10 border border-brand-500/20">
             <Filter className="h-6 w-6 text-brand-400" />
           </div>
@@ -329,7 +357,7 @@ export const Notes: React.FC = () => {
               <Link
                 key={note.id}
                 to={`/notes/${note.id}`}
-                className="glass-card rounded-2xl p-6 flex flex-col justify-between hover:border-brand-500/30 transition-all duration-200 group relative overflow-hidden bg-white/[0.01]"
+                className="glass-card rounded-xl p-6 flex flex-col justify-between hover:border-brand-500/30 transition-all duration-200 group relative overflow-hidden bg-white/[0.01]"
               >
                 <div>
                   <div className="flex items-start justify-between gap-4 mb-3">
@@ -397,7 +425,7 @@ export const Notes: React.FC = () => {
           ></div>
 
           {/* Modal Content */}
-          <div className="glass-card w-full max-w-lg rounded-3xl p-6 sm:p-8 relative z-10 overflow-hidden shadow-2xl border-white/10">
+          <div className="glass-card w-full max-w-lg rounded-xl p-6 sm:p-8 relative z-10 overflow-hidden shadow-2xl border-white/10">
             {generating ? (
               /* Generating Loading State */
               <div className="flex flex-col items-center justify-center text-center py-12 space-y-6">
@@ -471,7 +499,7 @@ export const Notes: React.FC = () => {
                 {/* Materials List Checkbox Container */}
                 <div className="max-h-[280px] overflow-y-auto pr-1 space-y-2 mb-6">
                   {materials.length === 0 ? (
-                    <div className="text-center py-8 bg-white/5 rounded-2xl border border-white/5">
+                    <div className="text-center py-8 bg-white/5 rounded-xl border border-white/5">
                       <p className="text-sm text-gray-400">No materials available.</p>
                       <Link
                         to="/materials"
@@ -534,6 +562,37 @@ export const Notes: React.FC = () => {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM CONFIRMATION MODAL */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}></div>
+          <div className="glass-card rounded-xl p-6 max-w-sm w-full relative z-10 border border-white/10 shadow-2xl bg-[#0c101c] animate-fade-in space-y-6">
+            <div className="space-y-2">
+              <h3 className="text-lg font-bold text-white">{confirmModal.title}</h3>
+              <p className="text-sm text-gray-400 leading-relaxed">{confirmModal.message}</p>
+            </div>
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/5">
+              <button
+                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                className="rounded-xl px-4 py-2.5 text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:outline-none"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const onConfirm = confirmModal.onConfirm
+                  setConfirmModal(prev => ({ ...prev, isOpen: false }))
+                  await onConfirm()
+                }}
+                className="rounded-xl px-5 py-2.5 text-xs font-bold text-white bg-rose-500 hover:bg-rose-600 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
+              >
+                Confirm
+              </button>
+            </div>
           </div>
         </div>
       )}

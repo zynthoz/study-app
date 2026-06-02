@@ -8,7 +8,6 @@ import {
   Award,
   ChevronLeft,
   Send,
-  HelpCircle,
 } from 'lucide-react'
 
 interface Question {
@@ -185,7 +184,7 @@ export const ExamSession: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32">
-        <Loader2 className="h-8 w-8 text-purple-400 animate-spin" />
+        <Loader2 className="h-6 w-6 text-purple-400 animate-spin" strokeWidth={1.5} />
       </div>
     )
   }
@@ -195,13 +194,13 @@ export const ExamSession: React.FC = () => {
       <div className="mx-auto max-w-5xl px-6 py-12">
         <Link
           to={`/exams/${id}`}
-          className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors group mb-6"
+          className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-white transition-colors group mb-6"
         >
-          <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+          <ChevronLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-1" strokeWidth={1.5} />
           Back to Lobby
         </Link>
-        <div className="flex items-start gap-3 rounded-2xl bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400">
-          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 rounded-xl bg-red-500/10 border border-red-500/20 p-4 text-xs text-red-400">
+          <AlertCircle className="h-4.5 w-4.5 shrink-0 mt-0.5" strokeWidth={1.5} />
           <span>{error || 'Exam session could not be initialized.'}</span>
         </div>
       </div>
@@ -214,26 +213,28 @@ export const ExamSession: React.FC = () => {
       <div className="flex items-center justify-between gap-4 mb-8">
         <Link
           to={`/exams/${exam.id}`}
-          className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors group"
+          className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-white transition-colors group"
         >
-          <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+          <ChevronLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-1" strokeWidth={1.5} />
           Cancel Exam
         </Link>
-        <div className="flex items-center gap-2 text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-full px-3 py-1">
-          <Award className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-2 text-[10px] font-bold bg-purple-500/10 text-purple-300 border border-purple-500/20 rounded-full px-3 py-1 uppercase tracking-wider font-mono">
+          <Award className="h-3 w-3" strokeWidth={1.5} />
           <span>Practice Session</span>
         </div>
       </div>
 
       <form onSubmit={handleSubmitExam} className="space-y-8">
         {/* Title Card */}
-        <div className="glass-card rounded-3xl p-6 sm:p-8 border-white/10 shadow-2xl relative overflow-hidden">
-          <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-white leading-tight">
-            {exam.title}
-          </h1>
-          <p className="mt-2 text-sm text-gray-400">
-            Please answer all questions below. When finished, click the submit button at the bottom of the page.
-          </p>
+        <div className="double-bezel-outer bg-white/[0.005]">
+          <div className="double-bezel-inner p-6 sm:p-8">
+            <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-white leading-tight">
+              {exam.title}
+            </h1>
+            <p className="mt-2 text-xs text-zinc-400">
+              Please answer all questions below. When finished, click the submit button at the bottom of the page.
+            </p>
+          </div>
         </div>
 
         {/* Questions list */}
@@ -243,125 +244,127 @@ export const ExamSession: React.FC = () => {
             return (
               <div
                 key={q.id}
-                className="glass-card rounded-2xl p-6 sm:p-8 border-white/5 bg-white/[0.01] hover:border-white/10 transition-all duration-200"
+                className="double-bezel-outer"
               >
-                {/* Question Label */}
-                <div className="flex items-start gap-3.5">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 border border-purple-500/20 text-xs font-bold text-purple-400 mt-0.5">
-                    {idx + 1}
-                  </div>
-                  <div className="space-y-4 flex-1">
-                    <p className="text-base font-semibold text-gray-100 leading-relaxed">
-                      {q.question}
-                    </p>
+                <div className="double-bezel-inner p-6 sm:p-8">
+                  {/* Question Label */}
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 border border-purple-500/20 text-xs font-bold text-purple-300 mt-0.5">
+                      {idx + 1}
+                    </div>
+                    <div className="space-y-5 flex-1">
+                      <p className="text-base font-semibold text-zinc-100 leading-relaxed">
+                        {q.question}
+                      </p>
 
-                    {/* Inputs based on type */}
+                      {/* Inputs based on type */}
 
-                    {/* MULTIPLE CHOICE / MODIFIED TRUE OR FALSE */}
-                    {(q.type === 'multiple_choice' || q.type === 'modified_true_or_false') && (
-                      <div className="grid grid-cols-1 gap-2.5 mt-2">
-                        {q.choices.map((choice) => {
-                          // Extract option key (e.g. "A" from "A. Choice" or "A: Choice")
-                          const choiceKey = choice.trim().charAt(0).toUpperCase()
-                          const isSelected = currentAnswer === choiceKey
-                          return (
-                            <label
-                              key={choice}
-                              className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all duration-150 select-none
-                                ${isSelected
-                                  ? 'bg-purple-500/10 border-purple-500/30 text-white'
-                                  : 'bg-white/[0.02] border-white/5 text-gray-400 hover:bg-white/[0.05] hover:text-gray-200'
-                                }
-                              `}
-                            >
-                              <input
-                                type="radio"
-                                name={`q-${q.id}`}
-                                checked={isSelected}
-                                onChange={() => handleSingleValueChange(q.id, choiceKey)}
-                                className="sr-only"
-                              />
-                              <div
-                                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-extrabold mt-0.5 transition-all
+                      {/* MULTIPLE CHOICE / MODIFIED TRUE OR FALSE */}
+                      {(q.type === 'multiple_choice' || q.type === 'modified_true_or_false') && (
+                        <div className="grid grid-cols-1 gap-2.5 mt-2">
+                          {q.choices.map((choice) => {
+                            // Extract option key (e.g. "A" from "A. Choice" or "A: Choice")
+                            const choiceKey = choice.trim().charAt(0).toUpperCase()
+                            const isSelected = currentAnswer === choiceKey
+                            return (
+                              <label
+                                key={choice}
+                                className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all duration-300 select-none active:scale-[0.99]
                                   ${isSelected
-                                    ? 'border-purple-400 bg-purple-500 text-white'
-                                    : 'border-gray-600 bg-white/5 text-gray-500'
+                                    ? 'bg-purple-500/10 border-purple-500/30 text-white'
+                                    : 'bg-[#050507] border-white/5 text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
                                   }
                                 `}
                               >
-                                {choiceKey}
+                                <input
+                                  type="radio"
+                                  name={`q-${q.id}`}
+                                  checked={isSelected}
+                                  onChange={() => handleSingleValueChange(q.id, choiceKey)}
+                                  className="sr-only"
+                                />
+                                <div
+                                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-extrabold mt-0.5 transition-all duration-300
+                                    ${isSelected
+                                      ? 'border-purple-400 bg-purple-500 text-white shadow-[0_0_8px_rgba(168,85,247,0.4)]'
+                                      : 'border-zinc-700 bg-black/40 text-zinc-500'
+                                    }
+                                  `}
+                                >
+                                  {choiceKey}
+                                </div>
+                                <span className="text-sm font-medium leading-relaxed">{choice}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      {/* TRUE OR FALSE */}
+                      {q.type === 'true_or_false' && (
+                        <div className="grid grid-cols-2 gap-3 mt-2">
+                          {['True', 'False'].map((option) => {
+                            const isSelected = currentAnswer === option
+                            return (
+                              <label
+                                key={option}
+                                className={`flex items-center justify-center gap-2.5 p-3.5 rounded-xl border cursor-pointer transition-all duration-300 select-none text-center font-bold text-sm active:scale-[0.99]
+                                  ${isSelected
+                                    ? 'bg-purple-500/10 border-purple-500/30 text-white shadow-[0_0_15px_rgba(147,51,234,0.05)]'
+                                    : 'bg-[#050507] border-white/5 text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
+                                  }
+                                `}
+                              >
+                                <input
+                                  type="radio"
+                                  name={`q-${q.id}`}
+                                  checked={isSelected}
+                                  onChange={() => handleSingleValueChange(q.id, option)}
+                                  className="sr-only"
+                                />
+                                {option}
+                              </label>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      {/* IDENTIFICATION */}
+                      {q.type === 'identification' && (
+                        <div className="mt-2">
+                          <input
+                            type="text"
+                            value={(currentAnswer as string) || ''}
+                            onChange={(e) => handleSingleValueChange(q.id, e.target.value)}
+                            placeholder="Type your answer here..."
+                            className="w-full bg-[#050507] border border-white/5 focus:border-purple-500/40 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-700 focus:outline-none focus:ring-0 transition-all duration-300"
+                          />
+                        </div>
+                      )}
+
+                      {/* ENUMERATION */}
+                      {q.type === 'enumeration' && (
+                        <div className="grid grid-cols-1 gap-3 mt-2">
+                          {Array.isArray(currentAnswer) &&
+                            currentAnswer.map((val, eIdx) => (
+                              <div key={eIdx} className="flex items-center gap-3">
+                                <span className="text-xs text-zinc-500 font-bold w-4 shrink-0 font-mono">
+                                  {eIdx + 1}.
+                                </span>
+                                <input
+                                  type="text"
+                                  value={val || ''}
+                                  onChange={(e) =>
+                                    handleEnumValueChange(q.id, eIdx, e.target.value)
+                                  }
+                                  placeholder={`Answer item ${eIdx + 1}...`}
+                                  className="w-full bg-[#050507] border border-white/5 focus:border-purple-500/40 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-700 focus:outline-none focus:ring-0 transition-all duration-300"
+                                />
                               </div>
-                              <span className="text-sm font-medium leading-relaxed">{choice}</span>
-                            </label>
-                          )
-                        })}
-                      </div>
-                    )}
-
-                    {/* TRUE OR FALSE */}
-                    {q.type === 'true_or_false' && (
-                      <div className="grid grid-cols-2 gap-3 mt-2">
-                        {['True', 'False'].map((option) => {
-                          const isSelected = currentAnswer === option
-                          return (
-                            <label
-                              key={option}
-                              className={`flex items-center justify-center gap-2.5 p-3.5 rounded-xl border cursor-pointer transition-all duration-150 select-none text-center font-bold text-sm
-                                ${isSelected
-                                  ? 'bg-purple-500/10 border-purple-500/30 text-white shadow-[0_0_15px_rgba(147,51,234,0.05)]'
-                                  : 'bg-white/[0.02] border-white/5 text-gray-400 hover:bg-white/[0.05] hover:text-gray-200'
-                                }
-                              `}
-                            >
-                              <input
-                                type="radio"
-                                name={`q-${q.id}`}
-                                checked={isSelected}
-                                onChange={() => handleSingleValueChange(q.id, option)}
-                                className="sr-only"
-                              />
-                              {option}
-                            </label>
-                          )
-                        })}
-                      </div>
-                    )}
-
-                    {/* IDENTIFICATION */}
-                    {q.type === 'identification' && (
-                      <div className="mt-2">
-                        <input
-                          type="text"
-                          value={(currentAnswer as string) || ''}
-                          onChange={(e) => handleSingleValueChange(q.id, e.target.value)}
-                          placeholder="Type your answer here..."
-                          className="w-full bg-white/[0.02] hover:bg-white/[0.04] focus:bg-white/[0.05] border border-white/5 focus:border-purple-500/40 rounded-xl px-4 py-3.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-0 transition-all"
-                        />
-                      </div>
-                    )}
-
-                    {/* ENUMERATION */}
-                    {q.type === 'enumeration' && (
-                      <div className="grid grid-cols-1 gap-3 mt-2">
-                        {Array.isArray(currentAnswer) &&
-                          currentAnswer.map((val, eIdx) => (
-                            <div key={eIdx} className="flex items-center gap-3">
-                              <span className="text-xs text-gray-500 font-bold w-4 shrink-0">
-                                {eIdx + 1}.
-                              </span>
-                              <input
-                                type="text"
-                                value={val || ''}
-                                onChange={(e) =>
-                                  handleEnumValueChange(q.id, eIdx, e.target.value)
-                                }
-                                placeholder={`Answer item ${eIdx + 1}...`}
-                                className="w-full bg-white/[0.02] hover:bg-white/[0.04] focus:bg-white/[0.05] border border-white/5 focus:border-purple-500/40 rounded-xl px-4 py-3.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-0 transition-all"
-                              />
-                            </div>
-                          ))}
-                      </div>
-                    )}
+                            ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -370,32 +373,35 @@ export const ExamSession: React.FC = () => {
         </div>
 
         {/* Submit Actions */}
-        <div className="flex flex-col items-center justify-center p-6 bg-white/[0.01] border border-white/5 rounded-3xl space-y-4">
-          <button
-            type="submit"
-            disabled={!isComplete() || submitting}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-500 hover:from-purple-500 hover:to-indigo-400 px-10 py-4 text-base font-bold text-white transition-all duration-200 cursor-pointer shadow-[0_4px_25px_rgba(147,51,234,0.3)] disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none hover:shadow-[0_4px_30px_rgba(147,51,234,0.4)]"
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Submitting...
-              </>
-            ) : (
-              <>
-                <Send className="h-5 w-5" />
-                Submit and Grade Exam
-              </>
+        <div className="double-bezel-outer bg-white/[0.005]">
+          <div className="double-bezel-inner p-6 flex flex-col items-center justify-center space-y-4">
+            <button
+              type="submit"
+              disabled={!isComplete() || submitting}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-500 px-8 py-3.5 text-xs font-bold text-white transition-all duration-300 cursor-pointer shadow-[0_4px_12px_rgba(168,85,247,0.15)] disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none hover:shadow-[0_4px_18px_rgba(168,85,247,0.25)] active:scale-[0.98] hover:-translate-y-[1px]"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" strokeWidth={1.5} />
+                  Submit and Grade Exam
+                </>
+              )}
+            </button>
+            {!isComplete() && (
+              <p className="text-[10px] text-zinc-500 flex items-center gap-1 font-mono">
+                <AlertCircle className="h-3 w-3 text-purple-400" strokeWidth={1.5} />
+                Answer all questions to enable grading.
+              </p>
             )}
-          </button>
-          {!isComplete() && (
-            <p className="text-xs text-gray-500 flex items-center gap-1">
-              <HelpCircle className="h-3.5 w-3.5 text-purple-400" />
-              Answer all questions to enable grading.
-            </p>
-          )}
+          </div>
         </div>
       </form>
     </div>
   )
 }
+

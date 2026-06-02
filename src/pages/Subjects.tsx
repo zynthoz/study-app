@@ -194,6 +194,86 @@ export const Subjects: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
+  // Bulk selection states
+  const [selectedMaterialIds, setSelectedMaterialIds] = useState<string[]>([])
+  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([])
+  const [selectedExamIds, setSelectedExamIds] = useState<string[]>([])
+
+  // Reusable custom confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    onConfirm: () => void | Promise<void>
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  })
+
+  // Open confirmation helper
+  const openConfirmModal = (title: string, message: string, onConfirm: () => void | Promise<void>) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm,
+    })
+  }
+
+  // Clear selections on active subject or tab change
+  useEffect(() => {
+    setSelectedMaterialIds([])
+    setSelectedNoteIds([])
+    setSelectedExamIds([])
+  }, [activeSubjectId, activeTab])
+
+  // Keyboard Shortcuts (Alt+N / Alt+S to add subject, 1/2/3 to switch tabs)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        document.activeElement?.tagName === 'INPUT' ||
+        document.activeElement?.tagName === 'SELECT' ||
+        document.activeElement?.tagName === 'TEXTAREA' ||
+        (document.activeElement as HTMLElement)?.isContentEditable
+      ) {
+        return
+      }
+
+      // Alt + N or Alt + S: Create New Subject modal
+      if (e.altKey && (e.key === 'n' || e.key === 'N' || e.key === 's' || e.key === 'S')) {
+        e.preventDefault()
+        openCreateSubjectModal()
+        return
+      }
+
+      // 1: Switch to Files tab
+      if (e.key === '1') {
+        e.preventDefault()
+        selectTab('files')
+        return
+      }
+
+      // 2: Switch to Study Guides tab
+      if (e.key === '2') {
+        e.preventDefault()
+        selectTab('guides')
+        return
+      }
+
+      // 3: Switch to Exams tab
+      if (e.key === '3') {
+        e.preventDefault()
+        selectTab('exams')
+        return
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [subjects, activeSubjectId])
+
   const totalPercentage = mcPercent + idPercent + tofPercent + mtofPercent + enumPercent
   const isPercentageValid = totalPercentage === 100
 
@@ -339,46 +419,53 @@ export const Subjects: React.FC = () => {
   // Delete Subject
   const handleDeleteSubject = async (subjectId: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!window.confirm('Are you sure you want to delete this subject? Linked items will be set to unassigned.')) {
-      return
-    }
+    openConfirmModal(
+      'Delete Subject',
+      'Are you sure you want to delete this subject? Linked items will be set to unassigned.',
+      async () => {
+        setDeletingSubjectId(subjectId)
+        setError(null)
+        try {
+          const { error: deleteError } = await supabase.from('tbl_subjects').delete().eq('id', subjectId)
 
-    setDeletingSubjectId(subjectId)
-    setError(null)
-    try {
-      const { error: deleteError } = await supabase.from('tbl_subjects').delete().eq('id', subjectId)
+          if (deleteError) throw deleteError
 
-      if (deleteError) throw deleteError
+          setSubjects((prev) => prev.filter((s) => s.id !== subjectId))
+          
+          // Update local state relations to be null
+          setMaterials((prev) => prev.map((m) => (m.subject_id === subjectId ? { ...m, subject_id: null } : m)))
+          setNotes((prev) => prev.map((n) => (n.subject_id === subjectId ? { ...n, subject_id: null } : n)))
+          setExams((prev) => prev.map((ex) => (ex.subject_id === subjectId ? { ...ex, subject_id: null } : ex)))
 
-      setSubjects((prev) => prev.filter((s) => s.id !== subjectId))
-      
-      // Update local state relations to be null
-      setMaterials((prev) => prev.map((m) => (m.subject_id === subjectId ? { ...m, subject_id: null } : m)))
-      setNotes((prev) => prev.map((n) => (n.subject_id === subjectId ? { ...n, subject_id: null } : n)))
-      setExams((prev) => prev.map((ex) => (ex.subject_id === subjectId ? { ...ex, subject_id: null } : ex)))
-
-      setSuccess('Subject deleted successfully.')
-      if (activeSubjectId === subjectId) {
-        selectSubject('unassigned')
+          setSuccess('Subject deleted successfully.')
+          // If deleted active subject, select unassigned
+          if (activeSubjectId === subjectId) {
+            selectSubject('unassigned')
+          }
+        } catch (err: any) {
+          console.error('Error deleting subject:', err)
+          setError(err.message || 'Failed to delete subject.')
+        } finally {
+          setDeletingSubjectId(null)
+        }
       }
-    } catch (err: any) {
-      console.error('Error deleting subject:', err)
-      setError(err.message || 'Failed to delete subject.')
-    } finally {
-      setDeletingSubjectId(null)
-    }
+    )
   }
 
   // Reassign Material Subject Handler
   const handleUpdateMaterialSubject = async (materialId: string, subjectId: string) => {
     try {
       const dbSubjectId = subjectId === '' ? null : subjectId
-      const { error: updateError } = await supabase
+      const { data, error: updateError } = await supabase
         .from('tbl_materials')
         .update({ subject_id: dbSubjectId })
         .eq('id', materialId)
+        .select()
 
       if (updateError) throw updateError
+      if (!data || data.length === 0) {
+        throw new Error('No rows updated. Make sure database RLS update policies are configured.')
+      }
 
       setMaterials((prev) => prev.map((m) => (m.id === materialId ? { ...m, subject_id: dbSubjectId } : m)))
       setSuccess('File reassigned successfully.')
@@ -392,12 +479,16 @@ export const Subjects: React.FC = () => {
   const handleUpdateNoteSubject = async (noteId: string, subjectId: string) => {
     try {
       const dbSubjectId = subjectId === '' ? null : subjectId
-      const { error: updateError } = await supabase
+      const { data, error: updateError } = await supabase
         .from('tbl_notes')
         .update({ subject_id: dbSubjectId, updated_at: new Date().toISOString() })
         .eq('id', noteId)
+        .select()
 
       if (updateError) throw updateError
+      if (!data || data.length === 0) {
+        throw new Error('No rows updated. Make sure database RLS update policies are configured.')
+      }
 
       setNotes((prev) => prev.map((n) => (n.id === noteId ? { ...n, subject_id: dbSubjectId } : n)))
       setSuccess('Study guide reassigned successfully.')
@@ -411,12 +502,16 @@ export const Subjects: React.FC = () => {
   const handleUpdateExamSubject = async (examId: string, subjectId: string) => {
     try {
       const dbSubjectId = subjectId === '' ? null : subjectId
-      const { error: updateError } = await supabase
+      const { data, error: updateError } = await supabase
         .from('tbl_exams')
         .update({ subject_id: dbSubjectId })
         .eq('id', examId)
+        .select()
 
       if (updateError) throw updateError
+      if (!data || data.length === 0) {
+        throw new Error('No rows updated. Make sure database RLS update policies are configured.')
+      }
 
       setExams((prev) => prev.map((ex) => (ex.id === examId ? { ...ex, subject_id: dbSubjectId } : ex)))
       setSuccess('Exam reassigned successfully.')
@@ -522,22 +617,196 @@ export const Subjects: React.FC = () => {
   // Delete Material File
   const handleDeleteFile = async (material: Material) => {
     if (!user) return
-    setDeletingFileId(material.id)
+    openConfirmModal(
+      'Delete File',
+      `Are you sure you want to delete "${material.file_name}"? This action is permanent.`,
+      async () => {
+        setDeletingFileId(material.id)
+        setError(null)
+        try {
+          await supabase.storage.from('materials').remove([material.storage_path])
+          const { error: dbError } = await supabase.from('tbl_materials').delete().eq('id', material.id)
+
+          if (dbError) throw dbError
+
+          setMaterials((prev) => prev.filter((m) => m.id !== material.id))
+          setSuccess(`"${material.file_name}" deleted.`)
+        } catch (err: any) {
+          setError(err.message || 'Failed to delete material')
+        } finally {
+          setDeletingFileId(null)
+        }
+      }
+    )
+  }
+
+  // Bulk Actions
+  const handleBatchUpdateMaterialSubject = async (subjectId: string) => {
+    const targetSubjectId = subjectId === 'unassigned' ? null : subjectId
     setError(null)
-
     try {
-      await supabase.storage.from('materials').remove([material.storage_path])
-      const { error: dbError } = await supabase.from('tbl_materials').delete().eq('id', material.id)
+      const { data, error: updateError } = await supabase
+        .from('tbl_materials')
+        .update({ subject_id: targetSubjectId })
+        .in('id', selectedMaterialIds)
+        .select()
 
-      if (dbError) throw dbError
+      if (updateError) throw updateError
+      if (!data || data.length === 0) {
+        throw new Error('No rows updated. Make sure database RLS update policies are configured.')
+      }
 
-      setMaterials((prev) => prev.filter((m) => m.id !== material.id))
-      setSuccess(`"${material.file_name}" deleted.`)
+      setMaterials((prev) =>
+        prev.map((m) =>
+          selectedMaterialIds.includes(m.id) ? { ...m, subject_id: targetSubjectId } : m
+        )
+      )
+      setSuccess(`Updated subject for ${selectedMaterialIds.length} files.`)
+      setSelectedMaterialIds([])
     } catch (err: any) {
-      setError(err.message || 'Failed to delete material')
-    } finally {
-      setDeletingFileId(null)
+      setError(err.message || 'Failed to update files.')
     }
+  }
+
+  const handleBatchDeleteMaterials = async () => {
+    if (selectedMaterialIds.length === 0) return
+    openConfirmModal(
+      'Delete Selected Files',
+      `Are you sure you want to delete these ${selectedMaterialIds.length} files? This action is permanent.`,
+      async () => {
+        setError(null)
+        try {
+          const toDelete = materials.filter((m) => selectedMaterialIds.includes(m.id))
+          const paths = toDelete.map((m) => m.storage_path)
+          
+          if (paths.length > 0) {
+            await supabase.storage.from('materials').remove(paths)
+          }
+
+          const { error: dbError } = await supabase
+            .from('tbl_materials')
+            .delete()
+            .in('id', selectedMaterialIds)
+
+          if (dbError) throw dbError
+
+          setMaterials((prev) => prev.filter((m) => !selectedMaterialIds.includes(m.id)))
+          setSuccess(`Successfully deleted ${selectedMaterialIds.length} files.`)
+          setSelectedMaterialIds([])
+        } catch (err: any) {
+          setError(err.message || 'Failed to delete files.')
+        }
+      }
+    )
+  }
+
+  const handleBatchUpdateNoteSubject = async (subjectId: string) => {
+    const targetSubjectId = subjectId === 'unassigned' ? null : subjectId
+    setError(null)
+    try {
+      const { data, error: updateError } = await supabase
+        .from('tbl_notes')
+        .update({ subject_id: targetSubjectId })
+        .in('id', selectedNoteIds)
+        .select()
+
+      if (updateError) throw updateError
+      if (!data || data.length === 0) {
+        throw new Error('No rows updated. Make sure database RLS update policies are configured.')
+      }
+
+      setNotes((prev) =>
+        prev.map((n) =>
+          selectedNoteIds.includes(n.id) ? { ...n, subject_id: targetSubjectId } : n
+        )
+      )
+      setSuccess(`Updated subject for ${selectedNoteIds.length} study guides.`)
+      setSelectedNoteIds([])
+    } catch (err: any) {
+      setError(err.message || 'Failed to update study guides.')
+    }
+  }
+
+  const handleBatchDeleteNotes = async () => {
+    if (selectedNoteIds.length === 0) return
+    openConfirmModal(
+      'Delete Selected Study Guides',
+      `Are you sure you want to delete these ${selectedNoteIds.length} study guides? This action is permanent.`,
+      async () => {
+        setError(null)
+        try {
+          const { error: dbError } = await supabase
+            .from('tbl_notes')
+            .delete()
+            .in('id', selectedNoteIds)
+
+          if (dbError) throw dbError
+
+          setNotes((prev) => prev.filter((n) => !selectedNoteIds.includes(n.id)))
+          setSuccess(`Successfully deleted ${selectedNoteIds.length} study guides.`)
+          setSelectedNoteIds([])
+        } catch (err: any) {
+          setError(err.message || 'Failed to delete study guides.')
+        }
+      }
+    )
+  }
+
+  const handleBatchUpdateExamSubject = async (subjectId: string) => {
+    const targetSubjectId = subjectId === 'unassigned' ? null : subjectId
+    setError(null)
+    try {
+      const { data, error: updateError } = await supabase
+        .from('tbl_exams')
+        .update({ subject_id: targetSubjectId })
+        .in('id', selectedExamIds)
+        .select()
+
+      if (updateError) throw updateError
+      if (!data || data.length === 0) {
+        throw new Error('No rows updated. Make sure database RLS update policies are configured.')
+      }
+
+      setExams((prev) =>
+        prev.map((ex) =>
+          selectedExamIds.includes(ex.id) ? { ...ex, subject_id: targetSubjectId } : ex
+        )
+      )
+      setSuccess(`Updated subject for ${selectedExamIds.length} exams.`)
+      setSelectedExamIds([])
+    } catch (err: any) {
+      setError(err.message || 'Failed to update exams.')
+    }
+  }
+
+  const handleBatchDeleteExams = async () => {
+    if (selectedExamIds.length === 0) return
+    openConfirmModal(
+      'Delete Selected Exams',
+      `Are you sure you want to delete these ${selectedExamIds.length} exams? This action will also delete all associated attempts.`,
+      async () => {
+        setError(null)
+        try {
+          await supabase
+            .from('tbl_exam_sessions')
+            .delete()
+            .in('exam_id', selectedExamIds)
+
+          const { error: dbError } = await supabase
+            .from('tbl_exams')
+            .delete()
+            .in('id', selectedExamIds)
+
+          if (dbError) throw dbError
+
+          setExams((prev) => prev.filter((ex) => !selectedExamIds.includes(ex.id)))
+          setSuccess(`Successfully deleted ${selectedExamIds.length} exams.`)
+          setSelectedExamIds([])
+        } catch (err: any) {
+          setError(err.message || 'Failed to delete exams.')
+        }
+      }
+    )
   }
 
   // Notes Generation
@@ -580,20 +849,24 @@ export const Subjects: React.FC = () => {
   }
 
   const handleDeleteNote = async (noteId: string, title: string) => {
-    if (!window.confirm(`Are you sure you want to delete "${title}"?`)) return
-    
-    setDeletingNoteId(noteId)
-    setError(null)
-    try {
-      const { error: deleteError } = await supabase.from('tbl_notes').delete().eq('id', noteId)
-      if (deleteError) throw deleteError
-      setNotes((prev) => prev.filter((n) => n.id !== noteId))
-      setSuccess(`"${title}" deleted successfully.`)
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete note')
-    } finally {
-      setDeletingNoteId(null)
-    }
+    openConfirmModal(
+      'Delete Study Guide',
+      `Are you sure you want to delete "${title}"? This action is permanent.`,
+      async () => {
+        setDeletingNoteId(noteId)
+        setError(null)
+        try {
+          const { error: deleteError } = await supabase.from('tbl_notes').delete().eq('id', noteId)
+          if (deleteError) throw deleteError
+          setNotes((prev) => prev.filter((n) => n.id !== noteId))
+          setSuccess(`"${title}" deleted successfully.`)
+        } catch (err: any) {
+          setError(err.message || 'Failed to delete note')
+        } finally {
+          setDeletingNoteId(null)
+        }
+      }
+    )
   }
 
   // Exam Generation
@@ -657,22 +930,26 @@ export const Subjects: React.FC = () => {
   }
 
   const handleDeleteExam = async (examId: string, title: string) => {
-    if (!window.confirm(`Are you sure you want to delete "${title}"?`)) return
+    openConfirmModal(
+      'Delete Practice Exam',
+      `Are you sure you want to delete "${title}"? This action will also delete all associated attempts.`,
+      async () => {
+        setDeletingExamId(examId)
+        setError(null)
+        try {
+          await supabase.from('tbl_exam_sessions').delete().eq('exam_id', examId)
+          const { error: deleteError } = await supabase.from('tbl_exams').delete().eq('id', examId)
 
-    setDeletingExamId(examId)
-    setError(null)
-    try {
-      await supabase.from('tbl_exam_sessions').delete().eq('exam_id', examId)
-      const { error: deleteError } = await supabase.from('tbl_exams').delete().eq('id', examId)
-
-      if (deleteError) throw deleteError
-      setExams((prev) => prev.filter((ex) => ex.id !== examId))
-      setSuccess(`"${title}" deleted successfully.`)
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete exam')
-    } finally {
-      setDeletingExamId(null)
-    }
+          if (deleteError) throw deleteError
+          setExams((prev) => prev.filter((ex) => ex.id !== examId))
+          setSuccess(`"${title}" deleted successfully.`)
+        } catch (err: any) {
+          setError(err.message || 'Failed to delete exam')
+        } finally {
+          setDeletingExamId(null)
+        }
+      }
+    )
   }
 
   // Get active subject metadata
@@ -701,387 +978,481 @@ export const Subjects: React.FC = () => {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-12 space-y-8 animate-fade-in">
-      {/* Page Header */}
-      <div className="glass-card rounded-3xl p-8 sm:p-10 relative overflow-hidden bg-white/[0.01] border-white/5">
-        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-brand-500/10 blur-2xl pointer-events-none"></div>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-          <div className="space-y-2">
-            <h1 className="font-display text-3xl font-extrabold text-white sm:text-4xl">
-              Subject Center
-            </h1>
-            <p className="text-gray-400 max-w-xl text-sm">
-              Consolidated command-center. Create subjects to organize your study guides, practice exams, and upload files.
-            </p>
+    <div className="mx-auto max-w-5xl px-4 sm:px-6 py-12 space-y-10 animate-fade-in">
+
+      {/* Floating Toast Notifications */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full px-4 sm:px-0">
+        {error && (
+          <div className="double-bezel-outer !border-red-500/20 shadow-2xl animate-fade-in bg-zinc-950">
+            <div className="double-bezel-inner p-4 flex items-start gap-3 bg-red-500/5">
+              <AlertCircle className="h-4.5 w-4.5 shrink-0 mt-0.5 text-red-400" strokeWidth={1.5} />
+              <span className="text-xs text-red-300">{error}</span>
+            </div>
           </div>
-          <button
-            onClick={openCreateSubjectModal}
-            className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-tr from-brand-600 to-purple-500 hover:from-brand-500 hover:to-purple-400 px-5 py-3 text-sm font-semibold text-white transition-all cursor-pointer shadow-[0_4px_20px_rgba(139,92,246,0.25)] hover:shadow-[0_4px_25px_rgba(139,92,246,0.35)]"
-          >
-            <Plus className="h-5 w-5" />
-            New Subject
-          </button>
-        </div>
+        )}
+        {success && (
+          <div className="double-bezel-outer !border-emerald-500/20 shadow-2xl animate-fade-in bg-zinc-950">
+            <div className="double-bezel-inner p-4 flex items-start gap-3 bg-emerald-500/5">
+              <CheckCircle className="h-4.5 w-4.5 shrink-0 mt-0.5 text-emerald-400" strokeWidth={1.5} />
+              <span className="text-xs text-emerald-300">{success}</span>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Notifications */}
-      {error && (
-        <div className="flex items-start gap-3 rounded-2xl bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400 animate-fade-in">
-          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-          <span>{error}</span>
-        </div>
-      )}
-      {success && (
-        <div className="flex items-start gap-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-sm text-emerald-400 animate-fade-in">
-          <CheckCircle className="h-5 w-5 shrink-0 mt-0.5" />
-          <span>{success}</span>
-        </div>
-      )}
-
-      {/* Main Grid: Sidebar (Left), Content Area (Right) */}
-      <div className="flex flex-col lg:flex-row gap-8">
+      {/* Main Grid: Left Drawer, Right Content Panel */}
+      <div className="flex flex-col lg:flex-row gap-8 items-start">
         
-        {/* Left Sidebar: Subjects List */}
-        <div className="lg:w-80 shrink-0 w-full space-y-4">
-          <div className="glass-card rounded-2xl p-5 bg-white/[0.01] border-white/5 space-y-4">
-            <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">
-              Course Subjects
-            </h2>
-            
-            <div className="space-y-1.5 max-h-[450px] overflow-y-auto pr-1">
-              {/* Virtual Subject: Unassigned */}
-              <div
-                onClick={() => selectSubject('unassigned')}
-                className={`flex items-center justify-between p-3 rounded-xl cursor-pointer border transition-all duration-200 select-none
-                  ${activeSubjectId === 'unassigned'
-                    ? 'bg-white/10 border-white/20 text-white'
-                    : 'bg-transparent border-transparent text-gray-400 hover:text-gray-200 hover:bg-white/5'
-                  }
-                `}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <Folder className="h-4.5 w-4.5 shrink-0 text-gray-500" />
-                  <span className="text-sm font-semibold truncate">Unassigned Items</span>
-                </div>
-                <span className="text-[10px] font-bold bg-white/5 border border-white/10 px-2 py-0.5 rounded-full text-gray-400 shrink-0">
-                  {getCountsForSubject(null)}
-                </span>
-              </div>
-
-              {loading ? (
-                <div className="flex justify-center py-6">
-                  <Loader2 className="h-5 w-5 text-brand-400 animate-spin" />
-                </div>
-              ) : subjects.length === 0 ? (
-                <p className="text-xs text-gray-500 text-center py-4">No custom subjects added.</p>
-              ) : (
-                subjects.map((sub) => {
-                  const styles = getSubjectColorStyles(sub.color)
-                  const isSelected = activeSubjectId === sub.id
-                  const totalCount = getCountsForSubject(sub.id)
-
-                  return (
-                    <div
-                      key={sub.id}
-                      onClick={() => selectSubject(sub.id)}
-                      className={`flex items-center justify-between p-3 rounded-xl cursor-pointer border transition-all duration-200 select-none group
-                        ${isSelected
-                          ? `${styles.bg} border-white/15 text-white`
-                          : 'bg-transparent border-transparent text-gray-400 hover:text-gray-200 hover:bg-white/5'
-                        }
-                      `}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className={`h-2.5 w-2.5 rounded-full ${styles.dot} shrink-0`} />
-                        <span className="text-sm font-semibold truncate">{sub.name}</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-2 shrink-0">
-                        {/* Hover Actions */}
-                        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
-                          <button
-                            onClick={(e) => openEditSubjectModal(sub, e)}
-                            className="p-1 text-gray-500 hover:text-white rounded hover:bg-white/10"
-                            title="Edit Subject"
-                          >
-                            <Edit2 className="h-3 w-3" />
-                          </button>
-                          <button
-                            onClick={(e) => handleDeleteSubject(sub.id, e)}
-                            disabled={deletingSubjectId === sub.id}
-                            className="p-1 text-gray-500 hover:text-rose-400 rounded hover:bg-rose-500/10"
-                            title="Delete Subject"
-                          >
-                            {deletingSubjectId === sub.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-3 w-3" />
-                            )}
-                          </button>
-                        </div>
-
-                        <span className="text-[10px] font-bold bg-white/5 border border-white/10 px-2 py-0.5 rounded-full text-gray-400">
-                          {totalCount}
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Pane: Files, Notes, and Exams Tabs */}
-        <div className="flex-1 space-y-6">
-          <div className="glass-card rounded-2xl p-6 bg-white/[0.01] border-white/5 space-y-6">
-            
-            {/* Header section of selected subject */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/5">
-              <div className="flex items-center gap-3 min-w-0">
-                {activeSubjectId === 'unassigned' ? (
-                  <>
-                    <Folder className="h-6 w-6 text-gray-500 shrink-0" />
-                    <h2 className="text-2xl font-black text-white truncate">General / Unassigned</h2>
-                  </>
-                ) : activeSubject ? (
-                  <>
-                    <span className={`h-4.5 w-4.5 rounded-full ${activeSubjectColorStyles?.dot} shrink-0`} />
-                    <h2 className="text-2xl font-black text-white truncate">{activeSubject.name}</h2>
-                  </>
-                ) : (
-                  <h2 className="text-2xl font-black text-white truncate">Loading Subject...</h2>
-                )}
-              </div>
-
-              {/* Sub-Tabs Selector */}
-              <div className="flex items-center bg-white/5 border border-white/10 rounded-xl p-1 shrink-0 select-none">
+        {/* Left Sidebar: Subjects vertical index */}
+        <div className="lg:w-72 shrink-0 w-full space-y-4">
+          <div className="double-bezel-outer">
+            <div className="double-bezel-inner p-4 space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <h2 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                  Course Subjects
+                </h2>
                 <button
-                  onClick={() => selectTab('files')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer
-                    ${activeTab === 'files'
-                      ? 'bg-brand-500 text-white shadow'
-                      : 'text-gray-400 hover:text-white'
-                    }
-                  `}
+                  onClick={openCreateSubjectModal}
+                  className="flex items-center gap-1 rounded-lg bg-purple-600 hover:bg-purple-500 px-2 py-1 text-[10px] font-bold text-white transition-all cursor-pointer hover:-translate-y-[1px] active:scale-[0.98]"
                 >
-                  <Upload className="h-3.5 w-3.5" />
-                  Files ({currentSubjectMaterials.length})
-                </button>
-                <button
-                  onClick={() => selectTab('guides')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer
-                    ${activeTab === 'guides'
-                      ? 'bg-brand-500 text-white shadow'
-                      : 'text-gray-400 hover:text-white'
-                    }
-                  `}
-                >
-                  <FileText className="h-3.5 w-3.5" />
-                  Study Guides ({currentSubjectNotes.length})
-                </button>
-                <button
-                  onClick={() => selectTab('exams')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer
-                    ${activeTab === 'exams'
-                      ? 'bg-brand-500 text-white shadow'
-                      : 'text-gray-400 hover:text-white'
-                    }
-                  `}
-                >
-                  <Award className="h-3.5 w-3.5" />
-                  Exams ({currentSubjectExams.length})
+                  <Plus className="h-3 w-3" strokeWidth={1.5} />
+                  New
                 </button>
               </div>
-            </div>
-
-            {/* TAB CONTENT */}
-            {activeTab === 'files' && (
-              <div className="space-y-6">
-                {/* Upload Dropzone */}
+              
+              <div className="space-y-1.5 max-h-[420px] overflow-y-auto pr-1">
+                {/* Unassigned Items Row */}
                 <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={() => !uploading && fileInputRef.current?.click()}
-                  className={`glass-card rounded-2xl p-8 border border-dashed text-center cursor-pointer transition-all duration-300 relative overflow-hidden group
-                    ${dragOver
-                      ? 'border-brand-400 bg-brand-500/10 shadow-[0_0_20px_rgba(139,92,246,0.15)]'
-                      : 'border-white/10 hover:border-white/20'
+                  onClick={() => selectSubject('unassigned')}
+                  className={`flex items-center justify-between p-3 rounded-xl cursor-pointer border transition-all duration-200 select-none
+                    ${activeSubjectId === 'unassigned'
+                      ? 'bg-white/10 border-white/15 text-white'
+                      : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
                     }
-                    ${uploading ? 'pointer-events-none opacity-70' : ''}
                   `}
                 >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept={ACCEPTED_MIME_TYPES.join(',')}
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-
-                  {uploading ? (
-                    <div className="flex flex-col items-center py-2">
-                      <Loader2 className="h-8 w-8 text-brand-400 animate-spin mb-3" />
-                      <p className="font-bold text-white">Uploading "{uploadFileName}"...</p>
-                      <p className="text-xs text-gray-500 mt-1">Extracting contents with Gemini Parser...</p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center">
-                      <CloudUpload className="h-8 w-8 text-brand-400 group-hover:text-brand-300 transition-colors mb-3" />
-                      <p className="font-semibold text-white text-sm">
-                        {dragOver ? 'Drop file to upload' : 'Drag & drop file here'}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        or <span className="text-brand-400 font-bold group-hover:underline">browse files</span>
-                      </p>
-                      <p className="text-[10px] text-gray-600 mt-3 uppercase tracking-wider">
-                        PDF, DOCX, PPTX, TXT, Images (Max 10MB)
-                      </p>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Folder className="h-4 w-4 shrink-0 text-zinc-500" strokeWidth={1.5} />
+                    <span className="text-xs font-bold truncate">General / Unassigned</span>
+                  </div>
+                  <span className="text-[9px] font-mono font-bold bg-white/5 border border-white/10 px-2 py-0.5 rounded-full text-zinc-400 shrink-0">
+                    {getCountsForSubject(null)}
+                  </span>
                 </div>
 
-                {/* Files List */}
-                <div className="space-y-2">
-                  {currentSubjectMaterials.length === 0 ? (
-                    <div className="text-center py-10 bg-white/[0.01] border border-white/5 rounded-2xl">
-                      <Folder className="h-8 w-8 text-gray-700 mx-auto mb-2" />
-                      <p className="text-sm font-semibold text-gray-400">No files uploaded under this subject</p>
-                      <p className="text-xs text-gray-600 mt-0.5">Drag-and-drop a lecture deck or document above to begin.</p>
-                    </div>
-                  ) : (
-                    currentSubjectMaterials.map((material) => (
+                {loading ? (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="h-4 w-4 text-purple-400 animate-spin" strokeWidth={1.5} />
+                  </div>
+                ) : subjects.length === 0 ? (
+                  <p className="text-[10px] text-zinc-500 text-center py-4 font-semibold">No custom subjects.</p>
+                ) : (
+                  subjects.map((sub) => {
+                    const styles = getSubjectColorStyles(sub.color)
+                    const isSelected = activeSubjectId === sub.id
+                    const totalCount = getCountsForSubject(sub.id)
+
+                    return (
                       <div
-                        key={material.id}
-                        className="glass-card rounded-xl p-4 flex items-center gap-4 bg-white/[0.01] border-white/5 hover:border-white/10 group transition-all"
+                        key={sub.id}
+                        onClick={() => selectSubject(sub.id)}
+                        className={`flex items-center justify-between p-3 rounded-xl cursor-pointer border transition-all duration-200 select-none group
+                          ${isSelected
+                            ? `${styles.bg} border-white/10 text-white`
+                            : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+                          }
+                        `}
                       >
-                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${getFileTypeColor(material.file_type)}`}>
-                          {getFileIcon(material.file_type)}
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className={`h-2 w-2 rounded-full ${styles.dot} shrink-0`} />
+                          <span className="text-xs font-bold truncate">{sub.name}</span>
                         </div>
                         
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-white truncate">{material.file_name}</p>
-                          <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
-                            <span className="uppercase text-[10px] font-semibold">{material.file_type}</span>
-                            <span>•</span>
-                            <span>{formatFileSize(material.extracted_text)}</span>
-                            <span>•</span>
-                            <span>Uploaded {formatDate(material.created_at)}</span>
-                          </div>
-                        </div>
-
-                        {/* Subject Re-assignment Dropdown */}
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="text-[10px] text-gray-500 font-semibold">Subject:</span>
-                          <select
-                            value={material.subject_id || ''}
-                            onChange={(e) => handleUpdateMaterialSubject(material.id, e.target.value)}
-                            className="bg-white/5 border border-white/10 rounded-lg text-xs px-2.5 py-1 text-gray-300 focus:outline-none cursor-pointer"
-                          >
-                            <option value="" className="bg-[#0c101c]">Unassigned</option>
-                            {subjects.map((sub) => (
-                              <option key={sub.id} value={sub.id} className="bg-[#0c101c]">
-                                {sub.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <button
-                          onClick={() => handleDeleteFile(material)}
-                          disabled={deletingFileId === material.id}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-rose-500/10 hover:text-rose-400 transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
-                        >
-                          {deletingFileId === material.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'guides' && (
-              <div className="space-y-6">
-                {/* Header Action */}
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-gray-400">AI Study Guides</h3>
-                  <button
-                    onClick={() => {
-                      setError(null)
-                      setIsNotesModalOpen(true)
-                    }}
-                    className="flex items-center gap-1.5 rounded-xl bg-brand-500 px-4 py-2 text-xs font-bold text-white hover:bg-brand-600 transition-colors shadow-[0_2px_10px_rgba(139,92,246,0.15)] cursor-pointer"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Generate Study Guide
-                  </button>
-                </div>
-
-                {/* Guides Grid */}
-                {currentSubjectNotes.length === 0 ? (
-                  <div className="text-center py-12 bg-white/[0.01] border border-white/5 rounded-2xl">
-                    <FileText className="h-8 w-8 text-gray-700 mx-auto mb-2" />
-                    <p className="text-sm font-semibold text-gray-400">No study guides created yet</p>
-                    <p className="text-xs text-gray-600 mt-0.5">Click "Generate Study Guide" to synthesize your materials.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {currentSubjectNotes.map((note) => (
-                      <div
-                        key={note.id}
-                        onClick={() => navigate(`/notes/${note.id}`)}
-                        className="glass-card rounded-2xl p-5 flex flex-col justify-between hover:border-brand-500/30 transition-all duration-200 group bg-white/[0.01] border-white/5 relative cursor-pointer"
-                      >
-                        <div className="space-y-3">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 border border-brand-500/20 text-brand-400">
-                              <FileText className="h-4.5 w-4.5" />
-                            </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {/* Hover Actions */}
+                          <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity">
                             <button
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                handleDeleteNote(note.id, note.title)
-                              }}
-                              disabled={deletingNoteId === note.id}
-                              className="p-1 rounded text-gray-500 hover:bg-rose-500/10 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+                              onClick={(e) => openEditSubjectModal(sub, e)}
+                              className="p-1 text-zinc-500 hover:text-white rounded hover:bg-white/10 cursor-pointer"
+                              title="Edit Subject"
                             >
-                              {deletingNoteId === note.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              <Edit2 className="h-3 w-3" strokeWidth={1.5} />
+                            </button>
+                            <button
+                              onClick={(e) => handleDeleteSubject(sub.id, e)}
+                              disabled={deletingSubjectId === sub.id}
+                              className="p-1 text-zinc-500 hover:text-red-400 rounded hover:bg-red-500/10 cursor-pointer disabled:opacity-50"
+                              title="Delete Subject"
+                            >
+                              {deletingSubjectId === sub.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" strokeWidth={1.5} />
                               ) : (
-                                <Trash2 className="h-3.5 w-3.5" />
+                                <Trash2 className="h-3 w-3" strokeWidth={1.5} />
                               )}
                             </button>
                           </div>
-                          
-                          <h3 className="font-bold text-white text-base group-hover:text-brand-300 transition-colors line-clamp-1">
-                            {note.title || 'Untitled Notes'}
-                          </h3>
-                          <p className="text-xs text-gray-400 line-clamp-3 leading-relaxed">
-                            {note.content?.replace(/[#*`_]/g, '') || 'No content.'}
-                          </p>
-                        </div>
 
-                        <div className="flex flex-col gap-2 pt-4 mt-4 border-t border-white/5">
-                          <div className="flex items-center justify-between text-[11px] text-gray-500">
-                            <span className="flex items-center gap-1 font-semibold text-brand-400">
-                              <BookOpen className="h-3.5 w-3.5" />
-                              {note.material_ids?.length || 0} File{(note.material_ids?.length || 0) !== 1 ? 's' : ''}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3.5 w-3.5" />
-                              {formatDate(note.updated_at || note.created_at)}
-                            </span>
+                          <span className="text-[9px] font-mono font-bold bg-white/5 border border-white/10 px-2 py-0.5 rounded-full text-zinc-400">
+                            {totalCount}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Pane: Files, Notes, and Exams Workspace */}
+        <div className="flex-1 min-w-0 w-full space-y-6">
+          <div className="double-bezel-outer">
+            <div className="double-bezel-inner p-5 space-y-6">
+              
+              {/* Workspace Header */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {activeSubjectId === 'unassigned' ? (
+                    <>
+                      <Folder className="h-5 w-5 text-zinc-500 shrink-0" strokeWidth={1.5} />
+                      <h2 className="text-lg font-bold text-white truncate">General Library</h2>
+                    </>
+                  ) : activeSubject ? (
+                    <>
+                      <span className={`h-3 w-3 rounded-full ${activeSubjectColorStyles?.dot} shrink-0`} />
+                      <h2 className="text-lg font-bold text-white truncate">{activeSubject.name}</h2>
+                    </>
+                  ) : (
+                    <h2 className="text-sm font-bold text-zinc-500 truncate">Loading...</h2>
+                  )}
+                </div>
+
+                {/* Sub-Tabs Console Selector */}
+                <div className="flex items-center bg-[#050505] border border-white/5 rounded-full p-1 shrink-0 select-none">
+                  <button
+                    onClick={() => selectTab('files')}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full transition-all duration-300 cursor-pointer
+                      ${activeTab === 'files'
+                        ? 'bg-purple-600 text-white shadow-[0_2px_8px_rgba(168,85,247,0.15)]'
+                        : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                      }
+                    `}
+                  >
+                    <Upload className="h-3 w-3" strokeWidth={1.5} />
+                    Files ({currentSubjectMaterials.length})
+                  </button>
+                  <button
+                    onClick={() => selectTab('guides')}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full transition-all duration-300 cursor-pointer
+                      ${activeTab === 'guides'
+                        ? 'bg-purple-600 text-white shadow-[0_2px_8px_rgba(168,85,247,0.15)]'
+                        : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                      }
+                    `}
+                  >
+                    <FileText className="h-3 w-3" strokeWidth={1.5} />
+                    Guides ({currentSubjectNotes.length})
+                  </button>
+                  <button
+                    onClick={() => selectTab('exams')}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full transition-all duration-300 cursor-pointer
+                      ${activeTab === 'exams'
+                        ? 'bg-purple-600 text-white shadow-[0_2px_8px_rgba(168,85,247,0.15)]'
+                        : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                      }
+                    `}
+                  >
+                    <Award className="h-3 w-3" strokeWidth={1.5} />
+                    Exams ({currentSubjectExams.length})
+                  </button>
+                </div>
+              </div>
+
+              {/* TAB CONTENT: FILES */}
+              {activeTab === 'files' && (
+                <div className="space-y-6">
+                  {/* Dashed Drag Upload Zone */}
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => !uploading && fileInputRef.current?.click()}
+                    className={`border border-dashed text-center cursor-pointer transition-all duration-300 rounded-2xl p-6 relative overflow-hidden group
+                      ${dragOver
+                        ? 'border-purple-500 bg-purple-500/5 shadow-[0_0_15px_rgba(168,85,247,0.1)]'
+                        : 'border-zinc-800 bg-[#060608]/40 hover:bg-[#060608]/90 hover:border-zinc-700'
+                      }
+                      ${uploading ? 'pointer-events-none opacity-50' : ''}
+                    `}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={ACCEPTED_MIME_TYPES.join(',')}
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+
+                    {uploading ? (
+                      <div className="flex flex-col items-center py-2 space-y-2">
+                        <Loader2 className="h-6 w-6 text-purple-400 animate-spin" strokeWidth={1.5} />
+                        <p className="text-xs font-bold text-white">Uploading "{uploadFileName}"...</p>
+                        <p className="text-[10px] text-zinc-500">Extracting content layers...</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center py-2">
+                        <CloudUpload className="h-6 w-6 text-purple-400 group-hover:text-purple-300 transition-colors mb-2" strokeWidth={1.5} />
+                        <p className="font-semibold text-white text-xs">
+                          {dragOver ? 'Drop document to import' : 'Drag & drop file to import'}
+                        </p>
+                        <p className="text-[10px] text-zinc-500 mt-1">
+                          or <span className="text-purple-400 font-bold group-hover:underline">browse disk</span>
+                        </p>
+                        <p className="text-[9px] text-zinc-600 mt-3 uppercase tracking-widest font-bold">
+                          PDF, DOCX, PPTX, TXT, Images (Max 10MB)
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Files List Layout */}
+                  <div className="space-y-2">
+                    {/* Bulk Selection Console */}
+                    {selectedMaterialIds.length > 0 && (
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-white animate-fade-in text-xs mb-3">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedMaterialIds.length === currentSubjectMaterials.length}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedMaterialIds(currentSubjectMaterials.map(m => m.id))
+                              } else {
+                                setSelectedMaterialIds([])
+                              }
+                            }}
+                            className="rounded border-zinc-700 bg-black text-purple-600 focus:ring-0 cursor-pointer h-3.5 w-3.5"
+                          />
+                          <span className="font-bold">{selectedMaterialIds.length} files selected</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-zinc-400">Reassign:</span>
+                            <select
+                              onChange={(e) => handleBatchUpdateMaterialSubject(e.target.value)}
+                              value=""
+                              className="bg-[#050505] border border-white/10 rounded-lg text-[10px] px-2 py-1 text-gray-300 focus:outline-none cursor-pointer"
+                            >
+                              <option value="" disabled>Select subject...</option>
+                              <option value="unassigned">Unassigned</option>
+                              {subjects.map((sub) => (
+                                <option key={sub.id} value={sub.id}>
+                                  {sub.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <button
+                            onClick={handleBatchDeleteMaterials}
+                            className="flex items-center gap-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-bold px-3 py-1 rounded-lg transition-all cursor-pointer text-[10px] active:scale-[0.98]"
+                          >
+                            <Trash2 className="h-3 w-3" strokeWidth={1.5} />
+                            <span>Delete Selected</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {currentSubjectMaterials.length === 0 ? (
+                      <div className="text-center py-10 bg-white/[0.005] border border-white/5 rounded-xl space-y-2">
+                        <Folder className="h-6 w-6 text-zinc-700 mx-auto" strokeWidth={1.5} />
+                        <div className="space-y-0.5">
+                          <p className="text-xs font-bold text-zinc-400">No documents catalogued</p>
+                          <p className="text-[10px] text-zinc-600">Import a lecture transcript or outline sheet to begin.</p>
+                        </div>
+                      </div>
+                    ) : (
+                      currentSubjectMaterials.map((material) => (
+                        <div
+                          key={material.id}
+                          className="flex items-center gap-4 bg-white/[0.01] hover:bg-white/[0.02] border border-white/5 rounded-xl p-3.5 group transition-all duration-300"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedMaterialIds.includes(material.id)}
+                            onChange={(e) => {
+                              setSelectedMaterialIds((prev) =>
+                                e.target.checked
+                                  ? [...prev, material.id]
+                                  : prev.filter((id) => id !== material.id)
+                              )
+                            }}
+                            className="rounded border-zinc-700 bg-black text-purple-600 focus:ring-0 cursor-pointer h-3.5 w-3.5 shrink-0"
+                          />
+                          <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${getFileTypeColor(material.file_type)}`}>
+                            {getFileIcon(material.file_type)}
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-white truncate">{material.file_name}</p>
+                            <div className="flex items-center gap-2 mt-0.5 text-[10px] text-zinc-500 font-semibold">
+                              <span className="uppercase text-[9px] font-bold">{material.file_type}</span>
+                              <span>•</span>
+                              <span>{formatFileSize(material.extracted_text)}</span>
+                              <span>•</span>
+                              <span>{formatDate(material.created_at)}</span>
+                            </div>
                           </div>
 
-                          <div className="flex items-center justify-between gap-2 mt-1">
-                            <span className="text-[10px] text-gray-500 font-semibold">Subject:</span>
+                          {/* Reassign dropdown */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <select
+                              value={material.subject_id || ''}
+                              onChange={(e) => handleUpdateMaterialSubject(material.id, e.target.value)}
+                              className="bg-transparent border border-white/5 hover:border-white/10 rounded-lg text-[10px] px-2 py-1 text-zinc-400 hover:text-white focus:outline-none cursor-pointer transition-colors"
+                            >
+                              <option value="" className="bg-[#050507]">Unassigned</option>
+                              {subjects.map((sub) => (
+                                <option key={sub.id} value={sub.id} className="bg-[#050507]">
+                                  {sub.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <button
+                            onClick={() => handleDeleteFile(material)}
+                            disabled={deletingFileId === material.id}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-red-500/10 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100 cursor-pointer shrink-0"
+                          >
+                            {deletingFileId === material.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                            )}
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB CONTENT: GUIDES */}
+              {activeTab === 'guides' && (
+                <div className="space-y-6">
+                  {/* Header Action */}
+                  <div className="flex items-center justify-between pb-1">
+                    <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">AI Synthesized Notes</h3>
+                    <button
+                      onClick={() => {
+                        setError(null)
+                        setIsNotesModalOpen(true)
+                      }}
+                      className="flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-2 text-xs font-bold text-white transition-all duration-300 shadow-[0_2px_10px_rgba(168,85,247,0.15)] cursor-pointer hover:-translate-y-[1px] active:scale-[0.98]"
+                    >
+                      <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      Generate Notes
+                    </button>
+                  </div>
+
+                  {/* Guides Table List */}
+                  <div className="space-y-2">
+                    {/* Bulk Selection Console */}
+                    {selectedNoteIds.length > 0 && (
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-white animate-fade-in text-xs mb-3">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedNoteIds.length === currentSubjectNotes.length}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedNoteIds(currentSubjectNotes.map(n => n.id))
+                              } else {
+                                setSelectedNoteIds([])
+                              }
+                            }}
+                            className="rounded border-zinc-700 bg-black text-purple-600 focus:ring-0 cursor-pointer h-3.5 w-3.5"
+                          />
+                          <span className="font-bold">{selectedNoteIds.length} guides selected</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-zinc-400">Reassign:</span>
+                            <select
+                              onChange={(e) => handleBatchUpdateNoteSubject(e.target.value)}
+                              value=""
+                              className="bg-[#050505] border border-white/10 rounded-lg text-[10px] px-2 py-1 text-gray-300 focus:outline-none cursor-pointer"
+                            >
+                              <option value="" disabled>Select subject...</option>
+                              <option value="unassigned">Unassigned</option>
+                              {subjects.map((sub) => (
+                                <option key={sub.id} value={sub.id}>
+                                  {sub.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <button
+                            onClick={handleBatchDeleteNotes}
+                            className="flex items-center gap-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-bold px-3 py-1 rounded-lg transition-all cursor-pointer text-[10px] active:scale-[0.98]"
+                          >
+                            <Trash2 className="h-3 w-3" strokeWidth={1.5} />
+                            <span>Delete Selected</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {currentSubjectNotes.length === 0 ? (
+                      <div className="text-center py-10 bg-white/[0.005] border border-white/5 rounded-xl space-y-2">
+                        <FileText className="h-6 w-6 text-zinc-700 mx-auto" strokeWidth={1.5} />
+                        <div className="space-y-0.5">
+                          <p className="text-xs font-bold text-zinc-400">No study guides created</p>
+                          <p className="text-[10px] text-zinc-600">Select files to generate an interactive study guide.</p>
+                        </div>
+                      </div>
+                    ) : (
+                      currentSubjectNotes.map((note) => (
+                        <div
+                          key={note.id}
+                          onClick={() => navigate(`/notes/${note.id}`)}
+                          className="flex items-center gap-4 bg-white/[0.01] hover:bg-white/[0.02] border border-white/5 rounded-xl p-3.5 group cursor-pointer transition-all duration-300"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedNoteIds.includes(note.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => {
+                              setSelectedNoteIds((prev) =>
+                                e.target.checked
+                                  ? [...prev, note.id]
+                                  : prev.filter((id) => id !== note.id)
+                              )
+                            }}
+                            className="rounded border-zinc-700 bg-black text-purple-600 focus:ring-0 cursor-pointer h-3.5 w-3.5 shrink-0"
+                          />
+                          
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400">
+                            <FileText className="h-4.5 w-4.5" strokeWidth={1.5} />
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-white truncate group-hover:text-purple-300 transition-colors">
+                              {note.title || 'Untitled Notes'}
+                            </p>
+                            <p className="text-[10px] text-zinc-500 line-clamp-1 leading-relaxed mt-0.5">
+                              {note.content?.replace(/[#*`_]/g, '') || 'No content.'}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className="text-[9px] font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <BookOpen className="h-3 w-3" strokeWidth={1.5} />
+                              {note.material_ids?.length || 0} Sources
+                            </span>
+                            
                             <select
                               onClick={(e) => e.stopPropagation()}
                               value={note.subject_id || ''}
@@ -1089,96 +1460,153 @@ export const Subjects: React.FC = () => {
                                 e.stopPropagation()
                                 handleUpdateNoteSubject(note.id, e.target.value)
                               }}
-                              className="bg-white/5 border border-white/10 rounded-lg text-[10px] px-2 py-0.5 text-gray-300 focus:outline-none cursor-pointer w-full max-w-[140px]"
+                              className="bg-transparent border border-white/5 hover:border-white/10 rounded-lg text-[10px] px-2 py-1 text-zinc-400 hover:text-white focus:outline-none cursor-pointer transition-colors"
                             >
-                              <option value="" className="bg-[#0c101c]">Unassigned</option>
+                              <option value="" className="bg-[#050507]">Unassigned</option>
                               {subjects.map((sub) => (
-                                <option key={sub.id} value={sub.id} className="bg-[#0c101c]">
+                                <option key={sub.id} value={sub.id} className="bg-[#050507]">
                                   {sub.name}
                                 </option>
                               ))}
                             </select>
                           </div>
+
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              handleDeleteNote(note.id, note.title)
+                            }}
+                            disabled={deletingNoteId === note.id}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-red-500/10 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100 cursor-pointer shrink-0"
+                          >
+                            {deletingNoteId === note.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                            )}
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB CONTENT: EXAMS */}
+              {activeTab === 'exams' && (
+                <div className="space-y-6">
+                  {/* Header Action */}
+                  <div className="flex items-center justify-between pb-1">
+                    <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Evaluations</h3>
+                    <button
+                      onClick={() => {
+                        setError(null)
+                        setIsExamModalOpen(true)
+                      }}
+                      className="flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-2 text-xs font-bold text-white transition-all duration-300 shadow-[0_2px_10px_rgba(168,85,247,0.15)] cursor-pointer hover:-translate-y-[1px] active:scale-[0.98]"
+                    >
+                      <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      Configure Exam
+                    </button>
+                  </div>
+
+                  {/* Exams Table List */}
+                  <div className="space-y-2">
+                    {/* Bulk Selection Console */}
+                    {selectedExamIds.length > 0 && (
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-white animate-fade-in text-xs mb-3">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedExamIds.length === currentSubjectExams.length}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedExamIds(currentSubjectExams.map(ex => ex.id))
+                              } else {
+                                setSelectedExamIds([])
+                              }
+                            }}
+                            className="rounded border-zinc-700 bg-black text-purple-600 focus:ring-0 cursor-pointer h-3.5 w-3.5"
+                          />
+                          <span className="font-bold">{selectedExamIds.length} exams selected</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-zinc-400">Reassign:</span>
+                            <select
+                              onChange={(e) => handleBatchUpdateExamSubject(e.target.value)}
+                              value=""
+                              className="bg-[#050505] border border-white/10 rounded-lg text-[10px] px-2 py-1 text-gray-300 focus:outline-none cursor-pointer"
+                            >
+                              <option value="" disabled>Select subject...</option>
+                              <option value="unassigned">Unassigned</option>
+                              {subjects.map((sub) => (
+                                <option key={sub.id} value={sub.id}>
+                                  {sub.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <button
+                            onClick={handleBatchDeleteExams}
+                            className="flex items-center gap-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-bold px-3 py-1 rounded-lg transition-all cursor-pointer text-[10px] active:scale-[0.98]"
+                          >
+                            <Trash2 className="h-3 w-3" strokeWidth={1.5} />
+                            <span>Delete Selected</span>
+                          </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                    )}
 
-            {activeTab === 'exams' && (
-              <div className="space-y-6">
-                {/* Header Action */}
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-gray-400">Practice Exams</h3>
-                  <button
-                    onClick={() => {
-                      setError(null)
-                      setIsExamModalOpen(true)
-                    }}
-                    className="flex items-center gap-1.5 rounded-xl bg-brand-500 px-4 py-2 text-xs font-bold text-white hover:bg-brand-600 transition-colors shadow-[0_2px_10px_rgba(139,92,246,0.15)] cursor-pointer"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Configure Exam
-                  </button>
-                </div>
-
-                {/* Exams List */}
-                {currentSubjectExams.length === 0 ? (
-                  <div className="text-center py-12 bg-white/[0.01] border border-white/5 rounded-2xl">
-                    <Award className="h-8 w-8 text-gray-700 mx-auto mb-2" />
-                    <p className="text-sm font-semibold text-gray-400">No exams generated yet</p>
-                    <p className="text-xs text-gray-600 mt-0.5">Click "Configure Exam" to create customized study assessments.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {currentSubjectExams.map((exam) => (
-                      <div
-                        key={exam.id}
-                        onClick={() => navigate(`/exams/${exam.id}`)}
-                        className="glass-card rounded-2xl p-5 flex flex-col justify-between hover:border-purple-500/30 transition-all duration-200 group bg-white/[0.01] border-white/5 relative cursor-pointer"
-                      >
-                        <div className="space-y-3">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
-                              <Award className="h-4.5 w-4.5" />
-                            </div>
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                handleDeleteExam(exam.id, exam.title)
-                              }}
-                              disabled={deletingExamId === exam.id}
-                              className="p-1 rounded text-gray-500 hover:bg-rose-500/10 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-                            >
-                              {deletingExamId === exam.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-3.5 w-3.5" />
-                              )}
-                            </button>
+                    {currentSubjectExams.length === 0 ? (
+                      <div className="text-center py-10 bg-white/[0.005] border border-white/5 rounded-xl space-y-2">
+                        <Award className="h-6 w-6 text-zinc-700 mx-auto" strokeWidth={1.5} />
+                        <div className="space-y-0.5">
+                          <p className="text-xs font-bold text-zinc-400">No exams generated</p>
+                          <p className="text-[10px] text-zinc-600">Select files to generate a custom practice exam.</p>
+                        </div>
+                      </div>
+                    ) : (
+                      currentSubjectExams.map((exam) => (
+                        <div
+                          key={exam.id}
+                          onClick={() => navigate(`/exams/${exam.id}`)}
+                          className="flex items-center gap-4 bg-white/[0.01] hover:bg-white/[0.02] border border-white/5 rounded-xl p-3.5 group cursor-pointer transition-all duration-300"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedExamIds.includes(exam.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => {
+                              setSelectedExamIds((prev) =>
+                                e.target.checked
+                                  ? [...prev, exam.id]
+                                  : prev.filter((id) => id !== exam.id)
+                              )
+                            }}
+                            className="rounded border-zinc-700 bg-black text-purple-600 focus:ring-0 cursor-pointer h-3.5 w-3.5 shrink-0"
+                          />
+                          
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400">
+                            <Award className="h-4.5 w-4.5" strokeWidth={1.5} />
                           </div>
 
-                          <h3 className="font-bold text-white text-base group-hover:text-purple-300 transition-colors line-clamp-1">
-                            {exam.title || 'Untitled Exam'}
-                          </h3>
-                        </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-white truncate group-hover:text-purple-300 transition-colors">
+                              {exam.title || 'Untitled Exam'}
+                            </p>
+                            <p className="text-[10px] text-zinc-500 flex items-center gap-1.5 mt-0.5">
+                              <Calendar className="h-3 w-3" strokeWidth={1.5} />
+                              <span>Generated {formatDate(exam.created_at)}</span>
+                            </p>
+                          </div>
 
-                        <div className="flex flex-col gap-2 pt-4 mt-6 border-t border-white/5">
-                          <div className="flex items-center justify-between text-[11px] text-gray-500">
-                            <span className="bg-purple-500/10 border border-purple-500/20 rounded-full px-2.5 py-0.5 font-bold text-purple-400">
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className="text-[9px] font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2.5 py-0.5 rounded-full">
                               {exam.questions?.length || 0} Questions
                             </span>
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3.5 w-3.5" />
-                              {formatDate(exam.created_at)}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between gap-2 mt-1">
-                            <span className="text-[10px] text-gray-500 font-semibold">Subject:</span>
+                            
                             <select
                               onClick={(e) => e.stopPropagation()}
                               value={exam.subject_id || ''}
@@ -1186,23 +1614,39 @@ export const Subjects: React.FC = () => {
                                 e.stopPropagation()
                                 handleUpdateExamSubject(exam.id, e.target.value)
                               }}
-                              className="bg-white/5 border border-white/10 rounded-lg text-[10px] px-2 py-0.5 text-gray-300 focus:outline-none cursor-pointer w-full max-w-[140px]"
+                              className="bg-transparent border border-white/5 hover:border-white/10 rounded-lg text-[10px] px-2 py-1 text-zinc-400 hover:text-white focus:outline-none cursor-pointer transition-colors"
                             >
-                              <option value="" className="bg-[#0c101c]">Unassigned</option>
+                              <option value="" className="bg-[#050507]">Unassigned</option>
                               {subjects.map((sub) => (
-                                <option key={sub.id} value={sub.id} className="bg-[#0c101c]">
+                                <option key={sub.id} value={sub.id} className="bg-[#050507]">
                                   {sub.name}
                                 </option>
                               ))}
                             </select>
                           </div>
+
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              handleDeleteExam(exam.id, exam.title)
+                            }}
+                            disabled={deletingExamId === exam.id}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-red-500/10 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100 cursor-pointer shrink-0"
+                          >
+                            {deletingExamId === exam.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                            )}
+                          </button>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1210,68 +1654,70 @@ export const Subjects: React.FC = () => {
       {/* CREATE / EDIT SUBJECT MODAL */}
       {isSubjectModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={closeSubjectModal}></div>
-          <div className="glass-card rounded-2xl p-6 max-w-md w-full relative z-10 border-white/10 shadow-2xl animate-fade-in space-y-6 bg-[#0c101c]">
-            <div className="flex items-center justify-between pb-3 border-b border-white/5">
-              <h3 className="text-lg font-extrabold text-white">
-                {editingSubject ? 'Edit Subject' : 'Create New Subject'}
-              </h3>
-              <button onClick={closeSubjectModal} className="text-gray-500 hover:text-white cursor-pointer">✕</button>
-            </div>
-
-            <form onSubmit={handleSaveSubject} className="space-y-5">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-400">Subject Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g., Biology, Organic Chemistry, World History"
-                  value={newSubjectName}
-                  onChange={(e) => setNewSubjectName(e.target.value)}
-                  className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-500/50"
-                  maxLength={50}
-                />
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={closeSubjectModal}></div>
+          <div className="double-bezel-outer max-w-sm w-full relative z-10">
+            <div className="double-bezel-inner p-6 space-y-6">
+              <div className="flex items-center justify-between pb-3 border-b border-white/5">
+                <h3 className="text-base font-bold text-white tracking-tight">
+                  {editingSubject ? 'Modify Subject' : 'Initialize Subject'}
+                </h3>
+                <button onClick={closeSubjectModal} className="text-zinc-500 hover:text-white cursor-pointer text-sm font-semibold">✕</button>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-gray-400">Subject Theme Color</label>
-                <div className="flex items-center gap-3">
-                  {COLOR_PRESETS.map((preset) => {
-                    const isSelected = selectedColor === preset.name
-                    return (
-                      <button
-                        key={preset.name}
-                        type="button"
-                        onClick={() => setSelectedColor(preset.name)}
-                        className={`h-8 w-8 rounded-full ${preset.dot} flex items-center justify-center relative cursor-pointer hover:scale-105 transition-all
-                          ${isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-[#0c101c]' : ''}
-                        `}
-                      >
-                        {isSelected && <span className="h-1.5 w-1.5 bg-white rounded-full" />}
-                      </button>
-                    )
-                  })}
+              <form onSubmit={handleSaveSubject} className="space-y-5">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Subject Title</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g., Biology, Organic Chemistry"
+                    value={newSubjectName}
+                    onChange={(e) => setNewSubjectName(e.target.value)}
+                    className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-xs text-white placeholder-zinc-700 focus:outline-none focus:border-purple-500/50"
+                    maxLength={50}
+                  />
                 </div>
-              </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/5">
-                <button
-                  type="button"
-                  onClick={closeSubjectModal}
-                  className="rounded-xl px-4 py-2.5 text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingSubject}
-                  className="flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-xs font-bold text-white bg-brand-500 hover:bg-brand-600 transition-all cursor-pointer disabled:opacity-50"
-                >
-                  {savingSubject && <Loader2 className="h-3 w-3 animate-spin" />}
-                  {editingSubject ? 'Save Changes' : 'Create Subject'}
-                </button>
-              </div>
-            </form>
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Theme Identifier</label>
+                  <div className="flex items-center gap-2.5">
+                    {COLOR_PRESETS.map((preset) => {
+                      const isSelected = selectedColor === preset.name
+                      return (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => setSelectedColor(preset.name)}
+                          className={`h-7 w-7 rounded-full ${preset.dot} flex items-center justify-center relative cursor-pointer hover:scale-105 transition-all
+                            ${isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-[#08080a]' : ''}
+                          `}
+                        >
+                          {isSelected && <span className="h-1.5 w-1.5 bg-white rounded-full" />}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/5">
+                  <button
+                    type="button"
+                    onClick={closeSubjectModal}
+                    className="rounded-xl px-4 py-2.5 text-xs font-semibold text-zinc-500 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingSubject}
+                    className="flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {savingSubject && <Loader2 className="h-3 w-3 animate-spin" />}
+                    {editingSubject ? 'Update' : 'Create'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
@@ -1279,85 +1725,87 @@ export const Subjects: React.FC = () => {
       {/* GENERATE NOTES MODAL */}
       {isNotesModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => !generatingNotes && setIsNotesModalOpen(false)}></div>
-          <div className="glass-card w-full max-w-lg rounded-3xl p-6 sm:p-8 relative z-10 overflow-hidden shadow-2xl border-white/10 bg-[#0c101c]">
-            {generatingNotes ? (
-              <div className="flex flex-col items-center justify-center text-center py-12 space-y-6">
-                <div className="relative">
-                  <div className="h-20 w-20 rounded-full border-4 border-t-brand-500 border-r-transparent border-b-purple-500 border-l-transparent animate-spin"></div>
-                  <div className="absolute inset-2 rounded-full bg-brand-500/10 flex items-center justify-center shadow-[0_0_20px_rgba(139,92,246,0.3)] animate-pulse">
-                    <Sparkles className="h-7 w-7 text-brand-300" />
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => !generatingNotes && setIsNotesModalOpen(false)}></div>
+          <div className="double-bezel-outer w-full max-w-md relative z-10">
+            <div className="double-bezel-inner p-6">
+              {generatingNotes ? (
+                <div className="flex flex-col items-center justify-center text-center py-12 space-y-6">
+                  <div className="relative">
+                    <div className="h-16 w-16 rounded-full border-4 border-t-purple-500 border-r-transparent border-b-purple-400 border-l-transparent animate-spin"></div>
+                    <div className="absolute inset-2 rounded-full bg-purple-500/10 flex items-center justify-center shadow-[0_0_20px_rgba(168,85,247,0.3)] animate-pulse">
+                      <Sparkles className="h-5 w-5 text-purple-300" strokeWidth={1.5} />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h3 className="font-display text-xl font-bold text-white tracking-tight">Synthesizing Notes...</h3>
+                    <p className="text-zinc-400 text-xs max-w-xs mx-auto leading-relaxed font-medium">
+                      Gemini is compiling your materials to generate a structured, comprehensive study guide.
+                    </p>
                   </div>
                 </div>
-                
-                <div className="space-y-2">
-                  <h3 className="font-display text-2xl font-bold text-white">Synthesizing Notes...</h3>
-                  <p className="text-gray-400 text-sm max-w-xs mx-auto leading-relaxed">
-                    Gemini is processing your materials to generate a structured, comprehensive study guide.
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/5">
+                    <h3 className="font-display text-base font-bold text-white flex items-center gap-2 tracking-tight">
+                      <Sparkles className="h-4.5 w-4.5 text-purple-400" strokeWidth={1.5} />
+                      Select Materials
+                    </h3>
+                    <button onClick={() => setIsNotesModalOpen(false)} className="p-1 rounded hover:bg-white/5 text-zinc-500 hover:text-white cursor-pointer"><X className="h-4.5 w-4.5" /></button>
+                  </div>
+
+                  <p className="text-xs text-zinc-400 leading-relaxed font-medium">
+                    Choose the documents you want the AI to synthesize into comprehensive study notes.
                   </p>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between mb-5">
-                  <h3 className="font-display text-2xl font-bold text-white flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-brand-400" />
-                    Select Materials
-                  </h3>
-                  <button onClick={() => setIsNotesModalOpen(false)} className="p-1 rounded hover:bg-white/5 text-gray-400 hover:text-white"><X className="h-5 w-5" /></button>
-                </div>
 
-                <p className="text-xs text-gray-400 mb-5">
-                  Choose files from this subject to synthesize.
-                </p>
+                  <div className="max-h-[200px] overflow-y-auto space-y-2 mb-2 pr-1">
+                    {currentSubjectMaterials.length === 0 ? (
+                      <p className="text-xs text-zinc-600 text-center py-6">No materials uploaded under this subject.</p>
+                    ) : (
+                      currentSubjectMaterials.map((m) => {
+                        const isSelected = selectedMaterialsForNotes.includes(m.id)
+                        return (
+                          <div
+                            key={m.id}
+                            onClick={() => {
+                              setSelectedMaterialsForNotes(prev =>
+                                prev.includes(m.id) ? prev.filter(id => id !== m.id) : [...prev, m.id]
+                              )
+                            }}
+                            className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all select-none
+                              ${isSelected ? 'bg-purple-500/10 border-purple-500/30' : 'bg-[#050507] border-white/5 hover:bg-white/5'}
+                            `}
+                          >
+                            {isSelected ? (
+                              <CheckSquare className="h-4 w-4 text-purple-400 shrink-0" strokeWidth={1.5} />
+                            ) : (
+                              <Square className="h-4 w-4 text-zinc-600 shrink-0" strokeWidth={1.5} />
+                            )}
+                            <span className="text-xs font-semibold text-zinc-200 truncate">{m.file_name}</span>
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
 
-                <div className="max-h-[250px] overflow-y-auto space-y-2 mb-6">
-                  {currentSubjectMaterials.length === 0 ? (
-                    <p className="text-xs text-gray-500 text-center py-6">No materials uploaded under this subject.</p>
-                  ) : (
-                    currentSubjectMaterials.map((m) => {
-                      const isSelected = selectedMaterialsForNotes.includes(m.id)
-                      return (
-                        <div
-                          key={m.id}
-                          onClick={() => {
-                            setSelectedMaterialsForNotes(prev =>
-                              prev.includes(m.id) ? prev.filter(id => id !== m.id) : [...prev, m.id]
-                            )
-                          }}
-                          className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all select-none
-                            ${isSelected ? 'bg-brand-500/10 border-brand-500/30' : 'bg-white/5 border-transparent hover:bg-white/10'}
-                          `}
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="h-5 w-5 text-brand-400 shrink-0" />
-                          ) : (
-                            <Square className="h-5 w-5 text-gray-500 shrink-0" />
-                          )}
-                          <span className="text-xs font-semibold text-gray-200 truncate">{m.file_name}</span>
-                        </div>
-                      )
-                    })
-                  )}
+                  <div className="flex items-center gap-2 pt-3 border-t border-white/5">
+                    <button
+                      onClick={() => setIsNotesModalOpen(false)}
+                      className="flex-1 rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-xs font-semibold text-zinc-500 hover:text-white cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleGenerateNotes}
+                      disabled={selectedMaterialsForNotes.length === 0}
+                      className="flex-1 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50 cursor-pointer"
+                    >
+                      Generate Notes
+                    </button>
+                  </div>
                 </div>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setIsNotesModalOpen(false)}
-                    className="flex-1 rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-xs font-bold text-gray-400 hover:text-white"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleGenerateNotes}
-                    disabled={selectedMaterialsForNotes.length === 0}
-                    className="flex-1 rounded-xl bg-gradient-to-tr from-brand-600 to-purple-500 px-4 py-3 text-xs font-bold text-white disabled:opacity-50"
-                  >
-                    Generate
-                  </button>
-                </div>
-              </>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -1365,160 +1813,195 @@ export const Subjects: React.FC = () => {
       {/* GENERATE EXAMS MODAL */}
       {isExamModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => !generatingExam && setIsExamModalOpen(false)}></div>
-          <div className="glass-card w-full max-w-xl rounded-3xl p-6 sm:p-8 relative z-10 overflow-hidden shadow-2xl border-white/10 bg-[#0c101c]">
-            {generatingExam ? (
-              <div className="flex flex-col items-center justify-center text-center py-12 space-y-6">
-                <div className="relative">
-                  <div className="h-20 w-20 rounded-full border-4 border-t-purple-500 border-r-transparent border-b-indigo-500 border-l-transparent animate-spin"></div>
-                  <div className="absolute inset-2 rounded-full bg-purple-500/10 flex items-center justify-center shadow-[0_0_20px_rgba(168,85,247,0.3)] animate-pulse">
-                    <Sparkles className="h-7 w-7 text-purple-300" />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <h3 className="font-display text-2xl font-bold text-white">Generating Exam...</h3>
-                  <p className="text-gray-400 text-sm max-w-xs mx-auto leading-relaxed">
-                    Gemini is processing your materials to create customized questions with automated scoring criteria.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between mb-5">
-                  <h3 className="font-display text-2xl font-bold text-white flex items-center gap-2">
-                    <Sliders className="h-5 w-5 text-purple-400" />
-                    Configure Practice Exam
-                  </h3>
-                  <button onClick={() => setIsExamModalOpen(false)} className="p-1 rounded hover:bg-white/5 text-gray-400 hover:text-white"><X className="h-5 w-5" /></button>
-                </div>
-
-                <div className="max-h-[380px] overflow-y-auto space-y-5 mb-6 pr-1">
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-gray-300">Select materials from this subject</label>
-                    <div className="max-h-[120px] overflow-y-auto space-y-2 bg-white/[0.02] border border-white/5 rounded-xl p-2">
-                      {currentSubjectMaterials.length === 0 ? (
-                        <p className="text-xs text-gray-500 text-center py-4">No materials uploaded under this subject.</p>
-                      ) : (
-                        currentSubjectMaterials.map((m) => {
-                          const isSelected = selectedMaterialsForExam.includes(m.id)
-                          return (
-                            <div
-                              key={m.id}
-                              onClick={() => {
-                                setSelectedMaterialsForExam(prev =>
-                                  prev.includes(m.id) ? prev.filter(id => id !== m.id) : [...prev, m.id]
-                                )
-                              }}
-                              className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-all select-none
-                                ${isSelected ? 'bg-purple-500/10 border-purple-500/30' : 'bg-white/5 border-transparent hover:bg-white/10'}
-                              `}
-                            >
-                              {isSelected ? (
-                                <CheckSquare className="h-4 w-4 text-purple-400 shrink-0" />
-                              ) : (
-                                <Square className="h-4 w-4 text-gray-500 shrink-0" />
-                              )}
-                              <span className="text-xs font-semibold text-gray-200 truncate">{m.file_name}</span>
-                            </div>
-                          )
-                        })
-                      )}
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => !generatingExam && setIsExamModalOpen(false)}></div>
+          <div className="double-bezel-outer w-full max-w-lg relative z-10">
+            <div className="double-bezel-inner p-6">
+              {generatingExam ? (
+                <div className="flex flex-col items-center justify-center text-center py-12 space-y-6">
+                  <div className="relative">
+                    <div className="h-16 w-16 rounded-full border-4 border-t-purple-500 border-r-transparent border-b-purple-400 border-l-transparent animate-spin"></div>
+                    <div className="absolute inset-2 rounded-full bg-purple-500/10 flex items-center justify-center shadow-[0_0_20px_rgba(168,85,247,0.3)] animate-pulse">
+                      <Sparkles className="h-5 w-5 text-purple-300" strokeWidth={1.5} />
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-gray-300 flex justify-between">
-                      <span>Number of Questions</span>
-                      <span className="text-xs text-purple-400 font-bold bg-purple-500/10 px-2 py-0.5 rounded">
-                        {numQuestions} questions
-                      </span>
-                    </label>
-                    <input
-                      type="range"
-                      min="5"
-                      max="30"
-                      step="1"
-                      value={numQuestions}
-                      onChange={(e) => setNumQuestions(parseInt(e.target.value))}
-                      className="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-white/10 accent-purple-500"
-                    />
+                    <h3 className="font-display text-xl font-bold text-white tracking-tight">Generating Exam...</h3>
+                    <p className="text-zinc-400 text-xs max-w-xs mx-auto leading-relaxed font-medium">
+                      Gemini is compiling customized questions and grading matrices from your documents.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/5">
+                    <h3 className="font-display text-base font-bold text-white flex items-center gap-2 tracking-tight">
+                      <Sliders className="h-4.5 w-4.5 text-purple-400" strokeWidth={1.5} />
+                      Configure Practice Exam
+                    </h3>
+                    <button onClick={() => setIsExamModalOpen(false)} className="p-1 rounded hover:bg-white/5 text-zinc-500 hover:text-white cursor-pointer"><X className="h-4.5 w-4.5" /></button>
                   </div>
 
-                  <div className="space-y-3 pt-2 border-t border-white/5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-semibold text-gray-300">Question Distribution</label>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={handleDistributeExamsEvenly}
-                          type="button"
-                          className="text-[9px] bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 px-2 py-0.5 rounded font-medium"
-                        >
-                          Even
-                        </button>
-                        <span className={`text-[10px] font-bold rounded px-2 py-0.5 border ${isPercentageValid ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
-                          Total: {totalPercentage}%
+                  <div className="max-h-[380px] overflow-y-auto space-y-5 mb-2 pr-1">
+                    <div className="space-y-2">
+                      <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Select materials from subject</label>
+                      <div className="max-h-[110px] overflow-y-auto space-y-2 bg-[#050507] border border-white/5 rounded-xl p-2">
+                        {currentSubjectMaterials.length === 0 ? (
+                          <p className="text-xs text-zinc-600 text-center py-4">No materials uploaded under this subject.</p>
+                        ) : (
+                          currentSubjectMaterials.map((m) => {
+                            const isSelected = selectedMaterialsForExam.includes(m.id)
+                            return (
+                              <div
+                                key={m.id}
+                                onClick={() => {
+                                  setSelectedMaterialsForExam(prev =>
+                                    prev.includes(m.id) ? prev.filter(id => id !== m.id) : [...prev, m.id]
+                                  )
+                                }}
+                                className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-all select-none
+                                  ${isSelected ? 'bg-purple-500/10 border-purple-500/30' : 'bg-transparent border-transparent hover:bg-white/5'}
+                                `}
+                              >
+                                {isSelected ? (
+                                  <CheckSquare className="h-4 w-4 text-purple-400 shrink-0" strokeWidth={1.5} />
+                                ) : (
+                                  <Square className="h-4 w-4 text-zinc-600 shrink-0" strokeWidth={1.5} />
+                                )}
+                                <span className="text-xs font-semibold text-zinc-200 truncate">{m.file_name}</span>
+                              </div>
+                            )
+                          })
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold text-zinc-300 flex justify-between">
+                        <span>Number of Questions</span>
+                        <span className="text-[10px] text-purple-400 font-bold bg-purple-500/10 px-2 py-0.5 rounded font-mono">
+                          {numQuestions} Questions
                         </span>
-                      </div>
+                      </label>
+                      <input
+                        type="range"
+                        min="5"
+                        max="30"
+                        step="1"
+                        value={numQuestions}
+                        onChange={(e) => setNumQuestions(parseInt(e.target.value))}
+                        className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                      />
                     </div>
 
-                    <div className="space-y-2 bg-white/[0.01] border border-white/5 rounded-xl p-3">
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-400">Multiple Choice</span>
-                          <span className="text-gray-300 font-bold">{mcPercent}%</span>
+                    <div className="space-y-3 pt-2 border-t border-white/5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold text-zinc-300">Question Type Distribution</label>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={handleDistributeExamsEvenly}
+                            type="button"
+                            className="text-[9px] bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 px-2 py-0.5 rounded font-bold cursor-pointer transition-colors"
+                          >
+                            Even
+                          </button>
+                          <span className={`text-[10px] font-bold rounded px-2 py-0.5 border font-mono ${isPercentageValid ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                            Total: {totalPercentage}%
+                          </span>
                         </div>
-                        <input type="range" min="0" max="100" step="5" value={mcPercent} onChange={(e) => setMcPercent(parseInt(e.target.value))} className="w-full h-1 bg-white/5 appearance-none cursor-pointer accent-purple-500" />
                       </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-400">Identification</span>
-                          <span className="text-gray-300 font-bold">{idPercent}%</span>
+
+                      <div className="space-y-2 bg-[#050507] border border-white/5 rounded-xl p-3">
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-zinc-500 font-semibold text-[10px] uppercase">Multiple Choice</span>
+                            <span className="text-zinc-300 font-bold font-mono text-[10px]">{mcPercent}%</span>
+                          </div>
+                          <input type="range" min="0" max="100" step="5" value={mcPercent} onChange={(e) => setMcPercent(parseInt(e.target.value))} className="w-full h-1 bg-zinc-800 appearance-none cursor-pointer accent-purple-500" />
                         </div>
-                        <input type="range" min="0" max="100" step="5" value={idPercent} onChange={(e) => setIdPercent(parseInt(e.target.value))} className="w-full h-1 bg-white/5 appearance-none cursor-pointer accent-purple-500" />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-400">True or False</span>
-                          <span className="text-gray-300 font-bold">{tofPercent}%</span>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-zinc-500 font-semibold text-[10px] uppercase">Identification</span>
+                            <span className="text-zinc-300 font-bold font-mono text-[10px]">{idPercent}%</span>
+                          </div>
+                          <input type="range" min="0" max="100" step="5" value={idPercent} onChange={(e) => setIdPercent(parseInt(e.target.value))} className="w-full h-1 bg-zinc-800 appearance-none cursor-pointer accent-purple-500" />
                         </div>
-                        <input type="range" min="0" max="100" step="5" value={tofPercent} onChange={(e) => setTofPercent(parseInt(e.target.value))} className="w-full h-1 bg-white/5 appearance-none cursor-pointer accent-purple-500" />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-400">Modified True or False</span>
-                          <span className="text-gray-300 font-bold">{mtofPercent}%</span>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-zinc-500 font-semibold text-[10px] uppercase">True or False</span>
+                            <span className="text-zinc-300 font-bold font-mono text-[10px]">{tofPercent}%</span>
+                          </div>
+                          <input type="range" min="0" max="100" step="5" value={tofPercent} onChange={(e) => setTofPercent(parseInt(e.target.value))} className="w-full h-1 bg-zinc-800 appearance-none cursor-pointer accent-purple-500" />
                         </div>
-                        <input type="range" min="0" max="100" step="5" value={mtofPercent} onChange={(e) => setMtofPercent(parseInt(e.target.value))} className="w-full h-1 bg-white/5 appearance-none cursor-pointer accent-purple-500" />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-400">Enumeration</span>
-                          <span className="text-gray-300 font-bold">{enumPercent}%</span>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-zinc-500 font-semibold text-[10px] uppercase">Modified True/False</span>
+                            <span className="text-zinc-300 font-bold font-mono text-[10px]">{mtofPercent}%</span>
+                          </div>
+                          <input type="range" min="0" max="100" step="5" value={mtofPercent} onChange={(e) => setMtofPercent(parseInt(e.target.value))} className="w-full h-1 bg-zinc-800 appearance-none cursor-pointer accent-purple-500" />
                         </div>
-                        <input type="range" min="0" max="100" step="5" value={enumPercent} onChange={(e) => setEnumPercent(parseInt(e.target.value))} className="w-full h-1 bg-white/5 appearance-none cursor-pointer accent-purple-500" />
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-zinc-500 font-semibold text-[10px] uppercase">Enumeration</span>
+                            <span className="text-zinc-300 font-bold font-mono text-[10px]">{enumPercent}%</span>
+                          </div>
+                          <input type="range" min="0" max="100" step="5" value={enumPercent} onChange={(e) => setEnumPercent(parseInt(e.target.value))} className="w-full h-1 bg-zinc-800 appearance-none cursor-pointer accent-purple-500" />
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setIsExamModalOpen(false)}
-                    className="flex-1 rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-xs font-bold text-gray-400 hover:text-white"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleGenerateExam}
-                    disabled={selectedMaterialsForExam.length === 0 || !isPercentageValid}
-                    className="flex-1 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 px-4 py-3 text-xs font-bold text-white disabled:opacity-50"
-                  >
-                    Generate
-                  </button>
+                  <div className="flex items-center gap-2 pt-3 border-t border-white/5">
+                    <button
+                      onClick={() => setIsExamModalOpen(false)}
+                      className="flex-1 rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-xs font-semibold text-zinc-500 hover:text-white cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleGenerateExam}
+                      disabled={selectedMaterialsForExam.length === 0 || !isPercentageValid}
+                      className="flex-1 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50 cursor-pointer"
+                    >
+                      Generate Exam
+                    </button>
+                  </div>
                 </div>
-              </>
-            )}
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM CONFIRMATION MODAL */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}></div>
+          <div className="double-bezel-outer max-w-xs w-full relative z-10">
+            <div className="double-bezel-inner p-6 space-y-6">
+              <div className="space-y-2">
+                <h3 className="text-sm font-bold text-white tracking-tight">{confirmModal.title}</h3>
+                <p className="text-xs text-zinc-400 leading-relaxed font-medium">{confirmModal.message}</p>
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/5">
+                <button
+                  onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                  className="rounded-xl px-4 py-2.5 text-xs font-semibold text-zinc-500 hover:text-white hover:bg-white/5 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:outline-none"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    const onConfirm = confirmModal.onConfirm
+                    setConfirmModal(prev => ({ ...prev, isOpen: false }))
+                    await onConfirm()
+                  }}
+                  className="rounded-xl px-5 py-2.5 text-xs font-bold text-white bg-red-600 hover:bg-red-500 transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

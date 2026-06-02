@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
+@variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: 'Inter', sans-serif;
   --font-display: 'Outfit', sans-serif;
@@ -22,8 +24,8 @@
 
 body {
   font-family: var(--font-sans);
-  background-color: #080c14;
-  color: #f3f4f6;
+  background-color: #030303;
+  color: #d1d5db;
   overflow-x: hidden;
   min-height: 100vh;
 }
@@ -38,7 +40,7 @@ h1, h2, h3, h4, h5, h6 {
     transform: translate(0, 0) scale(1);
   }
   50% {
-    transform: translate(40px, -60px) scale(1.15);
+    transform: translate(30px, -45px) scale(1.1);
   }
 }
 
@@ -47,80 +49,97 @@ h1, h2, h3, h4, h5, h6 {
     transform: translate(0, 0) scale(1);
   }
   50% {
-    transform: translate(-50px, 40px) scale(1.2);
+    transform: translate(-35px, 30px) scale(1.15);
   }
 }
 
 .animate-float-slow {
-  animation: float-slow 16s ease-in-out infinite;
+  animation: float-slow 20s ease-in-out infinite;
 }
 
 .animate-float-medium {
-  animation: float-medium 13s ease-in-out infinite;
+  animation: float-medium 16s ease-in-out infinite;
 }
 
-/* Glassmorphism Styles */
+/* Premium Enclosure: Double Bezel (Doppelrand) System */
+.double-bezel-outer {
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 0.375rem; /* 6px nested padding */
+  border-radius: 1.25rem; /* 20px outer radius */
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.8);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.double-bezel-inner {
+  background: #08080a;
+  border: 1px solid rgba(255, 255, 255, 0.015);
+  border-radius: calc(1.25rem - 0.375rem); /* Concentric radius calculations */
+}
+
+/* Glassmorphism Styles - Updated for Dark Void theme */
 .glass-card {
-  background: rgba(17, 24, 39, 0.45);
+  background: rgba(10, 10, 12, 0.7);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.9);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glass-card:hover {
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 12px 45px -8px rgba(0, 0, 0, 0.6);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 45px -8px rgba(0, 0, 0, 0.95);
 }
 
 .glass-input {
-  background: rgba(17, 24, 39, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #f3f4f6;
+  background: rgba(8, 8, 10, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: #ffffff;
   border-radius: 0.75rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glass-input:focus {
   outline: none;
-  border-color: rgba(167, 139, 250, 0.5);
-  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.2);
-  background: rgba(17, 24, 39, 0.75);
+  border-color: rgba(192, 132, 252, 0.4);
+  box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.1);
+  background: rgba(8, 8, 10, 0.95);
 }
 
 .glass-nav {
-  background: rgba(8, 12, 20, 0.65);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(3, 3, 3, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 /* Custom scrollbars */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #080c14;
+  background: #030303;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1f2937;
-  border-radius: 4px;
+  background: #18181b;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #374151;
+  background: #27272a;
 }
 
-/* TipTap Editor Rich Text Styling */
+/* TipTap Editor Rich Text Styling - Premium Void */
 .prose-editor .tiptap {
   min-height: 400px;
   outline: none;
   font-family: var(--font-sans);
-  color: #d1d5db;
-  line-height: 1.7;
+  color: #d4d4d8;
+  line-height: 1.75;
 }
 
 .prose-editor .tiptap p {
@@ -140,10 +159,10 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
   font-size: 1.75rem;
   font-weight: 700;
-  color: #f3f4f6;
+  color: #f4f4f5;
   margin-top: 1.75rem;
   margin-bottom: 0.75rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   padding-bottom: 0.25rem;
 }
 
@@ -151,7 +170,7 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
   font-size: 1.25rem;
   font-weight: 600;
-  color: #e5e7eb;
+  color: #e4e4e7;
   margin-top: 1.5rem;
   margin-bottom: 0.5rem;
 }
@@ -184,30 +203,440 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .prose-editor .tiptap blockquote {
-  border-left: 4px solid var(--color-brand-500);
-  background: rgba(139, 92, 246, 0.05);
+  border-left: 3px solid var(--color-brand-400);
+  background: rgba(192, 132, 252, 0.02);
   padding: 0.75rem 1.25rem;
   margin: 1.5rem 0;
   border-radius: 0 0.5rem 0.5rem 0;
-  color: #9ca3af;
+  color: #a1a1aa;
 }
 
 .prose-editor .tiptap pre {
-  background: rgba(17, 24, 39, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 8, 10, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.04);
   padding: 1rem;
-  border-radius: 0.75rem;
+  border-radius: 0.5rem;
   font-family: monospace;
   overflow-x: auto;
   margin: 1.5rem 0;
 }
 
 .prose-editor .tiptap code {
-  background: rgba(255, 255, 255, 0.08);
-  padding: 0.2rem 0.4rem;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.15rem 0.35rem;
   border-radius: 0.25rem;
   font-size: 0.875rem;
   font-family: monospace;
   color: var(--color-brand-300);
 }
+
+/* ==========================================================================
+   LIGHT MODE DESIGN SYSTEM OVERRIDES
+   ========================================================================== */
+
+html.light body {
+  background-color: #f7f7fa;
+  color: #27272a;
+}
+
+/* Layout container overrides */
+html.light .bg-\[\#080c14\] {
+  background-color: #f4f5f7 !important;
+}
+html.light .text-gray-100 {
+  color: #18181b !important;
+}
+
+/* Core palette re-mapping */
+html.light .text-white {
+  color: #09090b !important;
+}
+
+/* Force solid dark button backgrounds to retain white text */
+html.light .bg-purple-600,
+html.light .bg-purple-600 *,
+html.light .bg-purple-700,
+html.light .bg-purple-700 *,
+html.light .bg-purple-800,
+html.light .bg-purple-800 *,
+html.light .bg-red-600,
+html.light .bg-red-600 *,
+html.light .bg-rose-600,
+html.light .bg-rose-600 *,
+html.light .bg-emerald-600,
+html.light .bg-emerald-600 * {
+  color: #ffffff !important;
+}
+html.light .text-zinc-100 {
+  color: #18181b !important;
+}
+html.light .text-zinc-200 {
+  color: #27272a !important;
+}
+html.light .text-zinc-300 {
+  color: #3f3f46 !important;
+}
+html.light .text-zinc-400 {
+  color: #52525b !important;
+}
+html.light .text-zinc-500 {
+  color: #71717a !important;
+}
+
+/* Background overrides */
+html.light .bg-black {
+  background-color: #ffffff !important;
+}
+html.light .bg-black\/60 {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+}
+html.light .bg-zinc-950 {
+  background-color: #ffffff !important;
+}
+html.light .bg-zinc-900 {
+  background-color: #f4f4f5 !important;
+}
+html.light .bg-zinc-800 {
+  background-color: #e4e4e7 !important;
+}
+html.light .bg-\[\#08080a\] {
+  background-color: #f4f4f5 !important;
+}
+html.light .bg-\[\#0a0a0c\] {
+  background-color: #f4f4f5 !important;
+}
+html.light .bg-\[\#0d0d11\] {
+  background-color: #ffffff !important;
+}
+html.light .bg-white\/\[0\.005\] {
+  background-color: rgba(0, 0, 0, 0.015) !important;
+}
+html.light .bg-white\/\[0\.01\] {
+  background-color: rgba(0, 0, 0, 0.02) !important;
+}
+html.light .bg-white\/5 {
+  background-color: rgba(0, 0, 0, 0.15) !important;
+}
+html.light .bg-white\/10 {
+  background-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Interactive & Hover states */
+html.light .hover\:text-white:hover {
+  color: #09090b !important;
+}
+html.light .hover\:text-zinc-200:hover {
+  color: #18181b !important;
+}
+html.light .group:hover .group-hover\:text-purple-300 {
+  color: #6d28d9 !important;
+}
+html.light .group:hover .group-hover\:text-white {
+  color: #09090b !important;
+}
+
+/* Border overrides */
+html.light .border-white\/5 {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+html.light .border-white\/10 {
+  border-color: rgba(0, 0, 0, 0.12) !important;
+}
+html.light .border-white\/\[0\.02\] {
+  border-color: rgba(0, 0, 0, 0.06) !important;
+}
+html.light .border-zinc-800 {
+  border-color: #e4e4e7 !important;
+}
+html.light .border-zinc-700 {
+  border-color: #d4d4d8 !important;
+}
+
+/* Double Bezel (Doppelrand) custom re-styling */
+html.light .double-bezel-outer {
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+html.light .double-bezel-inner {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.03);
+}
+
+/* Inputs & Forms */
+html.light input,
+html.light select,
+html.light textarea {
+  color: #09090b !important;
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.15) !important;
+}
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #71717a !important;
+}
+
+/* Glassmorphism elements */
+html.light .glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+}
+html.light .glass-input {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: #1f1f23;
+}
+html.light .glass-input::placeholder {
+  color: #8e8e93;
+}
+html.light .glass-input:focus {
+  background: #ffffff;
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+html.light .glass-nav {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Floating background gradients visibility reduction */
+html.light .animate-float-slow,
+html.light .animate-float-medium {
+  opacity: 0.35;
+  mix-blend-mode: multiply;
+}
+
+/* TipTap Editor Prose styles overrides */
+html.light .prose-editor .tiptap {
+  color: #27272a;
+}
+html.light .prose-editor .tiptap h1,
+html.light .prose-editor .tiptap h2,
+html.light .prose-editor .tiptap h3,
+html.light .prose-editor .tiptap strong {
+  color: #09090b;
+}
+html.light .prose-editor .tiptap h2 {
+  border-color: rgba(0, 0, 0, 0.06);
+}
+html.light .prose-editor .tiptap blockquote {
+  background: rgba(124, 58, 237, 0.03);
+  color: #4b5563;
+}
+html.light .prose-editor .tiptap pre {
+  background: #f4f4f5;
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+/* ==========================================================================
+   LIGHT MODE PURPLE & ACCENT CONTRAST SYSTEM
+   ========================================================================== */
+
+/* Standard purples mapped to deeper, saturated violet-700/800 */
+html.light .text-purple-400 {
+  color: #6d28d9 !important; /* violet-700 */
+}
+html.light .text-purple-300 {
+  color: #5b21b6 !important; /* violet-800 */
+}
+html.light .text-purple-200 {
+  color: #4c1d95 !important; /* violet-900 */
+}
+html.light .text-brand-300 {
+  color: #6d28d9 !important;
+}
+html.light .text-brand-400 {
+  color: #5b21b6 !important;
+}
+html.light .stroke-purple-400 {
+  stroke: #6d28d9 !important;
+}
+
+/* Saturated highlights for cards and boundaries */
+html.light .bg-purple-500\/10 {
+  background-color: rgba(109, 40, 217, 0.08) !important;
+}
+html.light .border-purple-500\/20 {
+  border-color: rgba(109, 40, 217, 0.18) !important;
+}
+html.light .border-purple-500\/30 {
+  border-color: rgba(109, 40, 217, 0.25) !important;
+}
+html.light .hover\:border-purple-500\/60:hover {
+  border-color: rgba(109, 40, 217, 0.5) !important;
+}
+html.light .hover\:bg-purple-500\/10:hover {
+  background-color: rgba(109, 40, 217, 0.08) !important;
+}
+html.light .hover\:text-purple-400:hover {
+  color: #6d28d9 !important;
+}
+
+/* Buttons */
+html.light .bg-purple-600 {
+  background-color: #7c3aed !important;
+}
+html.light .hover\:bg-purple-500:hover {
+  background-color: #6d28d9 !important;
+}
+
+/* Preset category badge colors (rebalanced for light surface contrast) */
+html.light .text-violet-400 {
+  color: #6d28d9 !important;
+}
+html.light .text-blue-400 {
+  color: #1d4ed8 !important; /* blue-700 */
+}
+html.light .text-emerald-400 {
+  color: #047857 !important; /* emerald-700 */
+}
+html.light .text-amber-400 {
+  color: #b45309 !important; /* amber-700 */
+}
+html.light .text-rose-400 {
+  color: #be123c !important; /* rose-700 */
+}
+html.light .text-indigo-400 {
+  color: #4338ca !important; /* indigo-700 */
+}
+
+/* Presets backgrounds & borders */
+html.light .bg-violet-500\/10 {
+  background-color: rgba(109, 40, 217, 0.08) !important;
+}
+html.light .border-violet-500\/20 {
+  border-color: rgba(109, 40, 217, 0.18) !important;
+}
+html.light .bg-blue-500\/10 {
+  background-color: rgba(29, 78, 216, 0.08) !important;
+}
+html.light .border-blue-500\/20 {
+  border-color: rgba(29, 78, 216, 0.18) !important;
+}
+html.light .bg-emerald-500\/10 {
+  background-color: rgba(4, 120, 87, 0.08) !important;
+}
+html.light .border-emerald-500\/20 {
+  border-color: rgba(4, 120, 87, 0.18) !important;
+}
+html.light .bg-amber-500\/10 {
+  background-color: rgba(180, 83, 9, 0.08) !important;
+}
+html.light .border-amber-500\/20 {
+  border-color: rgba(180, 83, 9, 0.18) !important;
+}
+html.light .bg-rose-500\/10 {
+  background-color: rgba(190, 18, 60, 0.08) !important;
+}
+html.light .border-rose-500\/20 {
+  border-color: rgba(190, 18, 60, 0.18) !important;
+}
+html.light .bg-indigo-500\/10 {
+  background-color: rgba(67, 56, 202, 0.08) !important;
+}
+html.light .border-indigo-500\/20 {
+  border-color: rgba(67, 56, 202, 0.18) !important;
+}
+
+/* Success/Error states rebalancing */
+html.light .bg-emerald-500\/10 {
+  background-color: rgba(4, 120, 87, 0.08) !important;
+}
+html.light .text-emerald-300 {
+  color: #047857 !important;
+}
+html.light .border-emerald-500\/20 {
+  border-color: rgba(4, 120, 87, 0.18) !important;
+}
+html.light .bg-red-500\/10 {
+  background-color: rgba(185, 28, 28, 0.08) !important;
+}
+html.light .text-red-400 {
+  color: #b91c1c !important;
+}
+html.light .border-red-500\/25 {
+  border-color: rgba(185, 28, 28, 0.18) !important;
+}
+html.light .text-rose-400 {
+  color: #b91c1c !important;
+}
+html.light .bg-rose-500\/10 {
+  background-color: rgba(185, 28, 28, 0.08) !important;
+}
+html.light .border-rose-500\/20 {
+  border-color: rgba(185, 28, 28, 0.18) !important;
+}
+
+/* ==========================================================================
+   LIGHT MODE HOVER & CORE ASSETS OPTIMIZATION
+   ========================================================================== */
+
+/* Hardcoded dark backgrounds conversion */
+html.light .bg-\[\#050505\] {
+  background-color: #e4e4e7 !important; /* zinc-200 */
+}
+html.light .bg-\[\#050507\] {
+  background-color: #f4f4f5 !important; /* zinc-100 */
+}
+html.light .bg-\[\#060608\] {
+  background-color: #f4f4f5 !important; /* zinc-100 */
+}
+html.light .bg-\[\#060608\]\/40 {
+  background-color: rgba(0, 0, 0, 0.02) !important;
+}
+
+/* Zinc button structures */
+html.light .bg-zinc-900 {
+  background-color: #f4f4f5 !important; /* zinc-100 */
+}
+html.light .hover\:bg-zinc-800:hover {
+  background-color: #e4e4e7 !important; /* zinc-200 */
+}
+
+/* Active & Hover animations styling optimization */
+html.light .hover\:bg-white\/\[0\.02\]:hover {
+  background-color: rgba(0, 0, 0, 0.03) !important;
+}
+html.light .hover\:bg-white\/5:hover {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+html.light .hover\:bg-white\/10:hover {
+  background-color: rgba(0, 0, 0, 0.08) !important;
+}
+html.light .hover\:bg-white\/20:hover {
+  background-color: rgba(0, 0, 0, 0.12) !important;
+}
+html.light .hover\:bg-\[\#060608\]\/90:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+html.light .hover\:border-zinc-700:hover {
+  border-color: #d4d4d8 !important;
+}
+
+/* Group active states & selections */
+html.light .group:hover .group-hover\:text-purple-300 {
+  color: #6d28d9 !important; /* violet-700 */
+}
+html.light .group:hover .group-hover\:bg-purple-500\/20 {
+  background-color: rgba(109, 40, 217, 0.12) !important;
+}
+html.light .group:hover .group-hover\:text-white {
+  color: #09090b !important;
+}
+
+/* Red alerts on hover states */
+html.light .hover\:bg-red-500\/10:hover {
+  background-color: rgba(185, 28, 28, 0.08) !important;
+}
+html.light .hover\:border-red-500\/20:hover {
+  border-color: rgba(185, 28, 28, 0.2) !important;
+}
+html.light .hover\:text-red-400:hover {
+  color: #b91c1c !important;
+}
+
+
+
+
 

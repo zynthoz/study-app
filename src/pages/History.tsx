@@ -8,6 +8,7 @@ import {
   Calendar,
   Award,
   ChevronRight,
+  AlertCircle,
 } from 'lucide-react'
 
 interface ExamSession {
@@ -83,25 +84,11 @@ export const HistoryPage: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-12">
-      {/* Page Header */}
-      <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/5">
-        <div>
-          <h1 className="font-display text-3xl font-extrabold text-white sm:text-4xl">
-            Attempt History
-          </h1>
-          <p className="mt-2 text-gray-400">
-            Review your past exam scores, correct/incorrect selections, and question explanation cards.
-          </p>
-        </div>
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
-          <HistoryIcon className="h-6 w-6" />
-        </div>
-      </div>
 
       {/* Error Alert */}
       {error && (
-        <div className="mb-6 flex items-start gap-3 rounded-2xl bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400">
-          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+        <div className="mb-6 flex items-start gap-3 rounded-xl bg-red-500/10 border border-red-500/20 p-4 text-xs text-red-400">
+          <AlertCircle className="h-4.5 w-4.5 shrink-0 mt-0.5" strokeWidth={1.5} />
           <span>{error}</span>
         </div>
       )}
@@ -109,23 +96,25 @@ export const HistoryPage: React.FC = () => {
       {/* History List */}
       {loading ? (
         <div className="flex items-center justify-center py-24">
-          <Loader2 className="h-8 w-8 text-purple-400 animate-spin" />
+          <Loader2 className="h-6 w-6 text-purple-400 animate-spin" strokeWidth={1.5} />
         </div>
       ) : sessions.length === 0 ? (
-        <div className="glass-card rounded-2xl p-16 text-center">
-          <div className="mb-4 flex h-14 w-14 mx-auto items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20">
-            <HistoryIcon className="h-6 w-6 text-purple-400" />
+        <div className="double-bezel-outer bg-white/[0.005]">
+          <div className="double-bezel-inner p-16 text-center space-y-4">
+            <div className="mb-4 flex h-14 w-14 mx-auto items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20">
+              <HistoryIcon className="h-6 w-6 text-purple-400" strokeWidth={1.5} />
+            </div>
+            <p className="font-display text-lg font-semibold text-zinc-300">
+              No exam sessions logged yet
+            </p>
+            <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+              Take a practice exam first in the{' '}
+              <Link to="/exams" className="text-purple-400 font-semibold hover:underline">
+                Practice Exams
+              </Link>{' '}
+              tab to see your history logged here.
+            </p>
           </div>
-          <p className="font-display text-lg font-semibold text-gray-300">
-            No exam sessions logged yet
-          </p>
-          <p className="mt-1 text-sm text-gray-500 max-w-sm mx-auto">
-            Take a practice exam first in the{' '}
-            <Link to="/exams" className="text-purple-400 font-semibold hover:underline">
-              Practice Exams
-            </Link>{' '}
-            tab to see your history logged here.
-          </p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -136,44 +125,46 @@ export const HistoryPage: React.FC = () => {
               <div
                 key={session.id}
                 onClick={() => navigate(`/exams/session/${session.id}?history=true`)}
-                className="glass-card rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 cursor-pointer hover:border-purple-500/30 transition-all duration-200 group relative overflow-hidden bg-white/[0.01]"
+                className="double-bezel-outer cursor-pointer hover:border-purple-500/20 active:scale-[0.99] group"
               >
-                {/* Left side: Icon, title, date */}
-                <div className="flex items-start gap-4 flex-1 min-w-0">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 group-hover:bg-purple-500/20 transition-all">
-                    <Award className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 space-y-1">
-                    <h3 className="text-sm sm:text-base font-bold text-white group-hover:text-purple-300 transition-colors truncate">
-                      {examTitle}
-                    </h3>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <Calendar className="h-3.5 w-3.5" />
-                      <span>Completed {formatDate(session.completed_at)}</span>
+                <div className="double-bezel-inner p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  {/* Left side: Icon, title, date */}
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 group-hover:bg-purple-500/20 transition-all">
+                      <Award className="h-4.5 w-4.5" strokeWidth={1.5} />
+                    </div>
+                    <div className="min-w-0 space-y-1">
+                      <h3 className="text-sm font-bold text-white group-hover:text-purple-300 transition-colors truncate">
+                        {examTitle}
+                      </h3>
+                      <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 font-mono">
+                        <Calendar className="h-3 w-3" strokeWidth={1.5} />
+                        <span>Completed {formatDate(session.completed_at)}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Right side: Score & Chevron */}
-                <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto pt-4 sm:pt-0 border-t sm:border-t-0 border-white/5 shrink-0">
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <p className="text-xs text-gray-400 font-medium">Score</p>
-                      <p className="text-sm font-bold text-white">
-                        {session.score} / {session.total}
-                      </p>
+                  {/* Right side: Score & Chevron */}
+                  <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto pt-4 sm:pt-0 border-t sm:border-t-0 border-white/5 shrink-0">
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Score</p>
+                        <p className="text-xs font-bold text-zinc-300 font-mono">
+                          {session.score} / {session.total}
+                        </p>
+                      </div>
+                      
+                      <span
+                        className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border shrink-0 ${getPercentageColor(
+                          percentage
+                        )}`}
+                      >
+                        {percentage}%
+                      </span>
                     </div>
-                    
-                    <span
-                      className={`text-xs font-extrabold px-3 py-1 rounded-full border shrink-0 ${getPercentageColor(
-                        percentage
-                      )}`}
-                    >
-                      {percentage}%
-                    </span>
-                  </div>
 
-                  <ChevronRight className="h-5 w-5 text-gray-500 group-hover:text-white transition-transform group-hover:translate-x-1 hidden sm:block" />
+                    <ChevronRight className="h-4 w-4 text-zinc-500 group-hover:text-white transition-transform group-hover:translate-x-1 hidden sm:block" strokeWidth={1.5} />
+                  </div>
                 </div>
               </div>
             )
@@ -183,24 +174,3 @@ export const HistoryPage: React.FC = () => {
     </div>
   )
 }
-
-interface AlertCircleProps {
-  className?: string
-}
-
-const AlertCircle: React.FC<AlertCircleProps> = ({ className }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={1.5}
-    stroke="currentColor"
-    className={className}
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
-    />
-  </svg>
-)

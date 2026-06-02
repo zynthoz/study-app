@@ -152,7 +152,7 @@ export const ExamResults: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32">
-        <Loader2 className="h-8 w-8 text-purple-400 animate-spin" />
+        <Loader2 className="h-6 w-6 text-purple-400 animate-spin" strokeWidth={1.5} />
       </div>
     )
   }
@@ -162,13 +162,13 @@ export const ExamResults: React.FC = () => {
       <div className="mx-auto max-w-5xl px-6 py-12">
         <Link
           to={isHistoryView ? "/history" : "/exams"}
-          className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors group mb-6"
+          className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-white transition-colors group mb-6"
         >
-          <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+          <ChevronLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-1" strokeWidth={1.5} />
           Back to {isHistoryView ? "Attempt History" : "Practice Exams"}
         </Link>
-        <div className="flex items-start gap-3 rounded-2xl bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400">
-          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 rounded-xl bg-red-500/10 border border-red-500/20 p-4 text-xs text-red-400">
+          <AlertCircle className="h-4.5 w-4.5 shrink-0 mt-0.5" strokeWidth={1.5} />
           <span>{error || 'Exam session results not found.'}</span>
         </div>
       </div>
@@ -188,60 +188,60 @@ export const ExamResults: React.FC = () => {
       {/* Back link */}
       <Link
         to={isHistoryView ? "/history" : "/exams"}
-        className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors group mb-8"
+        className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-white transition-colors group mb-8"
       >
-        <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+        <ChevronLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-1" strokeWidth={1.5} />
         Back to {isHistoryView ? "Attempt History" : "Practice Exams"}
       </Link>
 
       <div className="space-y-8">
         {/* Results Overview Card */}
-        <div className="glass-card rounded-3xl p-6 sm:p-8 border-white/10 shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-purple-500/10 blur-3xl pointer-events-none"></div>
-
-          {/* Left: Score Text & Feedback */}
-          <div className="space-y-3 flex-1 text-center md:text-left">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
-              Results for: {exam.title}
-            </span>
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <h1 className={`text-2xl sm:text-3xl font-extrabold ${feedback.color.split(' ')[0]}`}>
-                {feedback.title}
-              </h1>
-              <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${feedback.color}`}>
-                Score: {session.score} / {session.total} ({scorePercentage}%)
+        <div className="double-bezel-outer bg-white/[0.005]">
+          <div className="double-bezel-inner p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+            {/* Left: Score Text & Feedback */}
+            <div className="space-y-3 flex-1 text-center md:text-left">
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block font-mono">
+                Results for: {exam.title}
               </span>
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <h1 className={`text-2xl sm:text-3xl font-extrabold ${feedback.color.split(' ')[0]}`}>
+                  {feedback.title}
+                </h1>
+                <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${feedback.color}`}>
+                  Score: {session.score} / {session.total} ({scorePercentage}%)
+                </span>
+              </div>
+              <p className="text-sm text-zinc-400 max-w-md leading-relaxed">
+                {feedback.message}
+              </p>
             </div>
-            <p className="text-sm text-gray-400 max-w-md">
-              {feedback.message}
-            </p>
-          </div>
 
-          {/* Right: SVG Circle Gauge */}
-          <div className="relative shrink-0 flex items-center justify-center">
-            <svg className="w-24 h-24 transform -rotate-90">
-              <circle
-                cx="48"
-                cy="48"
-                r={radius}
-                className="stroke-white/5"
-                strokeWidth="6"
-                fill="transparent"
-              />
-              <circle
-                cx="48"
-                cy="48"
-                r={radius}
-                className={`${feedback.ringColor || 'stroke-purple-500'} transition-all duration-1000 ease-out`}
-                strokeWidth="6"
-                fill="transparent"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-              />
-            </svg>
-            <div className="absolute flex flex-col items-center justify-center">
-              <span className="text-xl font-extrabold text-white">{scorePercentage}%</span>
+            {/* Right: SVG Circle Gauge */}
+            <div className="relative shrink-0 flex items-center justify-center">
+              <svg className="w-24 h-24 transform -rotate-90">
+                <circle
+                  cx="48"
+                  cy="48"
+                  r={radius}
+                  className="stroke-white/5"
+                  strokeWidth="5"
+                  fill="transparent"
+                />
+                <circle
+                  cx="48"
+                  cy="48"
+                  r={radius}
+                  className={`${feedback.ringColor || 'stroke-purple-500'} transition-all duration-1000 ease-out`}
+                  strokeWidth="5"
+                  fill="transparent"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={strokeDashoffset}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div className="absolute flex flex-col items-center justify-center">
+                <span className="text-lg font-extrabold text-white font-display">{scorePercentage}%</span>
+              </div>
             </div>
           </div>
         </div>
@@ -251,17 +251,17 @@ export const ExamResults: React.FC = () => {
           {!isHistoryView && (
             <Link
               to={`/exams/${exam.id}/take`}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-500 hover:from-purple-500 hover:to-indigo-400 px-6 py-3.5 text-sm font-semibold text-white transition-all cursor-pointer shadow-[0_4px_15px_rgba(147,51,234,0.2)]"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 px-6 py-2.5 text-xs font-bold text-white transition-all duration-300 shadow-[0_4px_12px_rgba(168,85,247,0.15)] active:scale-[0.98]"
             >
-              <RotateCcw className="h-4.5 w-4.5" />
-              Retake practice exam
+              <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Retake Exam
             </Link>
           )}
           <Link
             to={isHistoryView ? "/history" : `/exams/${exam.id}`}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-white/5 border border-white/10 px-6 py-3.5 text-sm font-semibold text-gray-300 hover:bg-white/10 transition cursor-pointer"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-white/5 border border-white/10 px-6 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/10 transition active:scale-[0.98]"
           >
-            <BookOpen className="h-4.5 w-4.5" />
+            <BookOpen className="h-3.5 w-3.5" strokeWidth={1.5} />
             {isHistoryView ? "Back to history" : "Back to lobby"}
           </Link>
         </div>
@@ -280,62 +280,64 @@ export const ExamResults: React.FC = () => {
               return (
                 <div
                   key={q.id}
-                  className={`glass-card rounded-2xl border p-6 transition-all duration-200
+                  className={`double-bezel-outer
                     ${correct
-                      ? 'border-emerald-500/20 bg-emerald-500/[0.01] hover:border-emerald-500/30'
-                      : 'border-rose-500/20 bg-rose-500/[0.01] hover:border-rose-500/30'
+                      ? 'border-emerald-500/20 bg-emerald-500/[0.005] hover:border-emerald-500/30'
+                      : 'border-rose-500/20 bg-rose-500/[0.005] hover:border-rose-500/30'
                     }
                   `}
                 >
-                  <div className="flex items-start gap-4">
-                    {/* Status Icon */}
-                    <div className="shrink-0 mt-0.5">
-                      {correct ? (
-                        <CheckCircle className="h-6 w-6 text-emerald-400" />
-                      ) : (
-                        <XCircle className="h-6 w-6 text-rose-400" />
-                      )}
-                    </div>
-
-                    <div className="flex-1 space-y-4">
-                      {/* Question Content */}
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-gray-500">
-                          Question {idx + 1} • {q.type.replace(/_/g, ' ')}
-                        </span>
-                        <p className="text-base font-semibold text-gray-100 mt-1 leading-relaxed">
-                          {q.question}
-                        </p>
+                  <div className="double-bezel-inner p-6">
+                    <div className="flex items-start gap-4">
+                      {/* Status Icon */}
+                      <div className="shrink-0 mt-0.5">
+                        {correct ? (
+                          <CheckCircle className="h-5 w-5 text-emerald-400" strokeWidth={1.5} />
+                        ) : (
+                          <XCircle className="h-5 w-5 text-rose-400" strokeWidth={1.5} />
+                        )}
                       </div>
 
-                      {/* Display user answer vs correct answer */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-white/[0.01] border border-white/5 rounded-xl p-3.5">
-                        <div className="space-y-1">
-                          <span className="text-xs text-gray-500 font-semibold uppercase">Your Answer</span>
-                          <p className={`font-medium ${correct ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {Array.isArray(userAns)
-                              ? userAns.map((val, eIdx) => `${eIdx + 1}. ${val || '(empty)'}`).join(', ')
-                              : userAns || '(No Answer)'}
+                      <div className="flex-1 space-y-4">
+                        {/* Question Content */}
+                        <div>
+                          <span className="text-[9px] uppercase font-bold text-zinc-500 font-mono block">
+                            Question {idx + 1} • {q.type.replace(/_/g, ' ')}
+                          </span>
+                          <p className="text-base font-semibold text-zinc-100 mt-1 leading-relaxed">
+                            {q.question}
                           </p>
                         </div>
 
-                        <div className="space-y-1">
-                          <span className="text-xs text-gray-500 font-semibold uppercase">Correct Answer</span>
-                          <p className="font-medium text-emerald-400">
-                            {Array.isArray(q.answer)
-                              ? q.answer.map((val, eIdx) => `${eIdx + 1}. ${val}`).join(', ')
-                              : String(q.answer)}
-                          </p>
-                        </div>
-                      </div>
+                        {/* Display user answer vs correct answer */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs bg-black/40 border border-white/5 rounded-xl p-3.5">
+                          <div className="space-y-1">
+                            <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Your Answer</span>
+                            <p className={`font-semibold ${correct ? 'text-emerald-400' : 'text-rose-400'}`}>
+                              {Array.isArray(userAns)
+                                ? userAns.map((val, eIdx) => `${eIdx + 1}. ${val || '(empty)'}`).join(', ')
+                                : userAns || '(No Answer)'}
+                            </p>
+                          </div>
 
-                      {/* Explanation */}
-                      {q.explanation && (
-                        <div className="bg-purple-500/[0.02] border border-purple-500/10 rounded-xl p-4 text-xs leading-relaxed">
-                          <span className="text-purple-400 font-bold uppercase block mb-1">Explanation</span>
-                          <span className="text-gray-400">{q.explanation}</span>
+                          <div className="space-y-1">
+                            <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Correct Answer</span>
+                            <p className="font-semibold text-emerald-400 font-mono">
+                              {Array.isArray(q.answer)
+                                ? q.answer.map((val, eIdx) => `${eIdx + 1}. ${val}`).join(', ')
+                                : String(q.answer)}
+                            </p>
+                          </div>
                         </div>
-                      )}
+
+                        {/* Explanation */}
+                        {q.explanation && (
+                          <div className="bg-purple-500/[0.02] border border-purple-500/10 rounded-xl p-4 text-xs leading-relaxed">
+                            <span className="text-purple-300 font-bold uppercase tracking-wider block mb-1">Explanation</span>
+                            <span className="text-zinc-400">{q.explanation}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -347,3 +349,4 @@ export const ExamResults: React.FC = () => {
     </div>
   )
 }
+
