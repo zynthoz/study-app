@@ -15,6 +15,7 @@ import {
   CheckSquare,
   Square,
   Filter,
+  Share2,
 } from 'lucide-react'
 
 interface Subject {
@@ -77,6 +78,14 @@ export const Notes: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
+  // Tabs & Sharing States
+  const [activeNotesTab, setActiveNotesTab] = useState<'my' | 'shared'>('my')
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [sharingNoteId, setSharingNoteId] = useState<string | null>(null)
+  const [shareEmail, setShareEmail] = useState('')
+  const [existingShares, setExistingShares] = useState<any[]>([])
+  const [loadingShares, setLoadingShares] = useState(false)
+
   // Reusable custom confirmation modal state
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean
@@ -113,7 +122,6 @@ export const Notes: React.FC = () => {
       const { data, error: fetchError } = await supabase
         .from('tbl_notes')
         .select('*')
-        .eq('user_id', user.id)
         .order('updated_at', { ascending: false })
 
       if (fetchError) throw fetchError
@@ -124,6 +132,64 @@ export const Notes: React.FC = () => {
       setLoading(false)
     }
   }, [user])
+
+  const openShareModal = async (noteId: string) => {
+    setSharingNoteId(noteId)
+    setIsShareModalOpen(true)
+    setLoadingShares(true)
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('tbl_shares')
+        .select('*')
+        .eq('note_id', noteId)
+
+      if (fetchError) throw fetchError
+      setExistingShares(data || [])
+    } catch (err: any) {
+      console.error(err)
+      setError('Failed to fetch shares.')
+    } finally {
+      setLoadingShares(false)
+    }
+  }
+
+  const handleAddShare = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!sharingNoteId || !shareEmail.trim()) return
+    try {
+      const { data, error: shareError } = await supabase
+        .from('tbl_shares')
+        .insert({
+          note_id: sharingNoteId,
+          sender_id: user?.id,
+          receiver_email: shareEmail.trim().toLowerCase(),
+        })
+        .select()
+        .single()
+
+      if (shareError) throw shareError
+      setExistingShares((prev) => [...prev, data])
+      setShareEmail('')
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || 'Failed to share note.')
+    }
+  }
+
+  const handleRevokeShare = async (shareId: string) => {
+    try {
+      const { error: revokeError } = await supabase
+        .from('tbl_shares')
+        .delete()
+        .eq('id', shareId)
+
+      if (revokeError) throw revokeError
+      setExistingShares((prev) => prev.filter((s) => s.id !== shareId))
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || 'Failed to revoke share.')
+    }
+  }
 
   // Fetch materials for selection
   const fetchMaterials = useCallback(async () => {
@@ -254,6 +320,12 @@ export const Notes: React.FC = () => {
   }
 
   const filteredNotes = notes.filter((n) => {
+    // 1. Filter by owner vs shared
+    const isOwner = n.user_id === user?.id
+    if (activeNotesTab === 'my' && !isOwner) return false
+    if (activeNotesTab === 'shared' && isOwner) return false
+
+    // 2. Filter by subject
     if (filterSubjectId === 'all') return true
     if (filterSubjectId === 'unassigned') return !n.subject_id
     return n.subject_id === filterSubjectId
@@ -291,12 +363,31 @@ export const Notes: React.FC = () => {
         </div>
       )}
 
-      {/* Notes List Header with Subject Filter */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-2 border-b border-white/5">
-        <h2 className="font-display text-xl font-bold text-white">
-          Your Study Guides
-        </h2>
-        
+      {/* Search/Filter Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 pb-4 border-b border-white/5">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setActiveNotesTab('my')}
+            className={`text-sm font-bold pb-2 border-b-2 transition-all cursor-pointer ${
+              activeNotesTab === 'my'
+                ? 'text-white border-purple-500'
+                : 'text-zinc-400 border-transparent hover:text-zinc-200'
+            }`}
+          >
+            My Notes
+          </button>
+          <button
+            onClick={() => setActiveNotesTab('shared')}
+            className={`text-sm font-bold pb-2 border-b-2 transition-all cursor-pointer ${
+              activeNotesTab === 'shared'
+                ? 'text-white border-purple-500'
+                : 'text-zinc-400 border-transparent hover:text-zinc-200'
+            }`}
+          >
+            Shared with Me
+          </button>
+        </div>
+
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-gray-500" />
           <span className="text-xs font-semibold text-gray-400">Filter:</span>
@@ -365,19 +456,38 @@ export const Notes: React.FC = () => {
                       <FileText className="h-5 w-5" />
                     </div>
                     
-                    {/* Delete Button */}
-                    <button
-                      onClick={(e) => handleDeleteNote(e, note.id, note.title)}
-                      disabled={deletingId === note.id}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-500/0 border border-transparent text-gray-500 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
-                      title="Delete Note"
-                    >
-                      {deletingId === note.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
+                    <div className="flex items-center gap-1">
+                      {/* Share Button (only for own notes) */}
+                      {note.user_id === user?.id && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            openShareModal(note.id)
+                          }}
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/0 border border-transparent text-gray-500 hover:bg-white/10 hover:text-purple-400 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
+                          title="Share Note"
+                        >
+                          <Share2 className="h-4 w-4" />
+                        </button>
                       )}
-                    </button>
+
+                      {/* Delete Button (only for own notes) */}
+                      {note.user_id === user?.id && (
+                        <button
+                          onClick={(e) => handleDeleteNote(e, note.id, note.title)}
+                          disabled={deletingId === note.id}
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-500/0 border border-transparent text-gray-500 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
+                          title="Delete Note"
+                        >
+                          {deletingId === note.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -412,6 +522,68 @@ export const Notes: React.FC = () => {
               </Link>
             )
           })}
+        </div>
+      )}
+
+      {/* SHARING MODAL */}
+      {isShareModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setIsShareModalOpen(false)}></div>
+          <div className="double-bezel-outer max-w-md w-full relative z-10">
+            <div className="double-bezel-inner p-6 space-y-6">
+              <div className="flex items-center justify-between pb-3 border-b border-white/5">
+                <h3 className="text-base font-bold text-white tracking-tight">Share Document</h3>
+                <button onClick={() => setIsShareModalOpen(false)} className="text-zinc-500 hover:text-white cursor-pointer text-sm font-semibold">✕</button>
+              </div>
+
+              {/* Add Share Form */}
+              <form onSubmit={handleAddShare} className="space-y-3">
+                <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Share with user email</label>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    required
+                    placeholder="e.g., student@university.edu"
+                    value={shareEmail}
+                    onChange={(e) => setShareEmail(e.target.value)}
+                    className="flex-1 rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-xs text-white placeholder-zinc-700 focus:outline-none focus:border-purple-500/50"
+                  />
+                  <button
+                    type="submit"
+                    className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all cursor-pointer"
+                  >
+                    Share
+                  </button>
+                </div>
+              </form>
+
+              {/* List of current shares */}
+              <div className="space-y-3 pt-3 border-t border-white/5">
+                <h4 className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Shared Access</h4>
+                {loadingShares ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="h-5 w-5 text-purple-400 animate-spin" />
+                  </div>
+                ) : existingShares.length === 0 ? (
+                  <p className="text-xs text-zinc-500 italic">This note is private. Add emails to share access.</p>
+                ) : (
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    {existingShares.map((share) => (
+                      <div key={share.id} className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] border border-white/5 text-xs">
+                        <span className="text-zinc-300 font-semibold">{share.receiver_email}</span>
+                        <button
+                          onClick={() => handleRevokeShare(share.id)}
+                          className="text-[10px] text-red-400 hover:text-red-300 font-bold cursor-pointer"
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

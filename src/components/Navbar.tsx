@@ -48,7 +48,7 @@ export const Navbar: React.FC = () => {
               <BookOpen className="h-4 w-4 text-purple-400 group-hover:text-purple-300 transition-colors" strokeWidth={1.5} />
             </div>
             <span className="font-display text-lg font-bold tracking-tight text-white group-hover:text-purple-300 transition-all duration-300">
-              StudyForge
+              IndexAI
             </span>
           </Link>
 

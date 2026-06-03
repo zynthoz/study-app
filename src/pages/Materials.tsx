@@ -14,6 +14,7 @@ import {
   CloudUpload,
   File,
   Filter,
+  ExternalLink,
 } from 'lucide-react'
 
 interface Subject {
@@ -284,6 +285,23 @@ export const Materials: React.FC = () => {
     }
   }
 
+  // Open Material File
+  const handleOpenFile = async (material: Material) => {
+    try {
+      const { data, error: urlError } = await supabase.storage
+        .from('materials')
+        .createSignedUrl(material.storage_path, 3600)
+
+      if (urlError) throw urlError
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+      }
+    } catch (err: any) {
+      console.error('Failed to open file:', err)
+      setError(err.message || 'Failed to open file.')
+    }
+  }
+
   // Drag & drop handlers
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -508,39 +526,46 @@ export const Materials: React.FC = () => {
                 key={material.id}
                 className="glass-card rounded-xl p-5 flex items-center gap-4 group transition-all duration-200"
               >
-                {/* File type icon */}
-                <div
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${getFileTypeColor(
-                    material.file_type
-                  )}`}
+                <button
+                  onClick={() => handleOpenFile(material)}
+                  className="flex flex-1 items-center gap-4 text-left min-w-0 cursor-pointer group/title focus:outline-none"
+                  title="Open file"
                 >
-                  {getFileIcon(material.file_type)}
-                </div>
-
-                {/* File info */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-100 truncate">
-                    {material.file_name}
-                  </p>
-                  <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                    {subject && (
-                      <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${colorStyles?.bg}`}>
-                        {subject.name}
-                      </span>
-                    )}
-                    <span className="text-xs text-gray-500 uppercase font-medium">
-                      {material.file_type}
-                    </span>
-                    <span className="text-xs text-gray-600">•</span>
-                    <span className="text-xs text-gray-500">
-                      {formatFileSize(material.extracted_text)}
-                    </span>
-                    <span className="text-xs text-gray-600">•</span>
-                    <span className="text-xs text-gray-500">
-                      {formatDate(material.created_at)}
-                    </span>
+                  {/* File type icon */}
+                  <div
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-all ${getFileTypeColor(
+                      material.file_type
+                    )} group-hover/title:border-purple-500/30 group-hover/title:bg-purple-500/10`}
+                  >
+                    {getFileIcon(material.file_type)}
                   </div>
-                </div>
+
+                  {/* File info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-100 truncate group-hover/title:text-purple-400 flex items-center gap-1 transition-all">
+                      <span>{material.file_name}</span>
+                      <ExternalLink className="h-3.5 w-3.5 opacity-0 group-hover/title:opacity-100 transition-opacity text-purple-400 shrink-0" strokeWidth={1.5} />
+                    </p>
+                    <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                      {subject && (
+                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${colorStyles?.bg}`}>
+                          {subject.name}
+                        </span>
+                      )}
+                      <span className="text-xs text-gray-500 uppercase font-medium">
+                        {material.file_type}
+                      </span>
+                      <span className="text-xs text-gray-600">•</span>
+                      <span className="text-xs text-gray-500">
+                        {formatFileSize(material.extracted_text)}
+                      </span>
+                      <span className="text-xs text-gray-600">•</span>
+                      <span className="text-xs text-gray-500">
+                        {formatDate(material.created_at)}
+                      </span>
+                    </div>
+                  </div>
+                </button>
 
                 {/* Delete button */}
                 <button

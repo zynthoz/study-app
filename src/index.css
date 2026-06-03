@@ -682,6 +682,38 @@ html.light .hover\:text-red-400:hover {
   color: #b91c1c !important;
 }
 
+/* ==========================================================================
+   CONTRAST & ACCESSIBILITY FIXES
+   ========================================================================== */
+
+/* Custom code/pre readability in light mode */
+html.light .prose-editor .tiptap code {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  color: #6d28d9 !important; /* Rich deep purple */
+}
+html.light .prose-editor .tiptap pre code {
+  background-color: transparent !important;
+  color: #3730a3 !important; /* Deep indigo */
+}
+
+/* Force white text on gradient buttons/containers in light mode */
+html.light .bg-gradient-to-r,
+html.light .bg-gradient-to-r *,
+html.light .bg-gradient-to-tr,
+html.light .bg-gradient-to-tr * {
+  color: #ffffff !important;
+}
+
+/* Fix dark mode placeholder text contrast for placeholder-zinc-700 */
+html.dark .placeholder-zinc-700::placeholder {
+  color: #71717a !important; /* zinc-500 */
+}
+
+/* Override dark modal backgrounds to be light in light mode */
+html.light .bg-\[\#0c101c\] {
+  background-color: #ffffff !important;
+}
+
 
 
 

@@ -43,7 +43,7 @@ export const Login: React.FC = () => {
             <BookOpen className="h-7 w-7 text-white" />
           </div>
           <h2 className="font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-            StudyForge
+            IndexAI
           </h2>
           <p className="mt-2 text-sm text-gray-400">
             Sign in to access your dashboard, study guides, and exams

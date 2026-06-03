@@ -24,6 +24,9 @@ import {
   CheckSquare,
   Square,
   Sliders,
+  ExternalLink,
+  FolderPlus,
+  Tag,
 } from 'lucide-react'
 
 interface Subject {
@@ -42,6 +45,14 @@ interface Material {
   extracted_text: string | null
   created_at: string
   subject_id: string | null
+  folder_id: string | null
+  tags: string[]
+}
+
+interface Folder {
+  id: string
+  name: string
+  created_at: string
 }
 
 interface Note {
@@ -153,9 +164,19 @@ export const Subjects: React.FC = () => {
   // Data States
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
+  const [folders, setFolders] = useState<Folder[]>([])
   const [notes, setNotes] = useState<Note[]>([])
   const [exams, setExams] = useState<Exam[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Folder & Tag Filter/Modal States
+  const [activeFolderId, setActiveFolderId] = useState<string>('all')
+  const [activeTagFilter, setActiveTagFilter] = useState<string>('all')
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
+  const [savingFolder, setSavingFolder] = useState(false)
+  const [editingTagsMaterialId, setEditingTagsMaterialId] = useState<string | null>(null)
+  const [editingTagsValue, setEditingTagsValue] = useState('')
 
   // Subject Edit/Create Modal States
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false)
@@ -284,20 +305,23 @@ export const Subjects: React.FC = () => {
     setLoading(true)
     setError(null)
     try {
-      const [subjectsRes, materialsRes, notesRes, examsRes] = await Promise.all([
+      const [subjectsRes, materialsRes, notesRes, examsRes, foldersRes] = await Promise.all([
         supabase.from('tbl_subjects').select('*').eq('user_id', user.id).order('name', { ascending: true }),
         supabase.from('tbl_materials').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('tbl_notes').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
         supabase.from('tbl_exams').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('tbl_folders').select('*').eq('user_id', user.id).order('name', { ascending: true }),
       ])
 
       if (subjectsRes.error) throw subjectsRes.error
       if (materialsRes.error) throw materialsRes.error
       if (notesRes.error) throw notesRes.error
       if (examsRes.error) throw examsRes.error
+      if (foldersRes.error) throw foldersRes.error
 
       setSubjects(subjectsRes.data || [])
       setMaterials(materialsRes.data || [])
+      setFolders(foldersRes.data || [])
       setNotes(notesRes.data || [])
       setExams(examsRes.data || [])
     } catch (err: any) {
@@ -476,6 +500,73 @@ export const Subjects: React.FC = () => {
     }
   }
 
+  // Folders & Tags Helpers
+  const handleCreateFolder = async () => {
+    if (!user || !newFolderName.trim()) return
+    setSavingFolder(true)
+    try {
+      const { data, error: dbError } = await supabase
+        .from('tbl_folders')
+        .insert({ name: newFolderName.trim(), user_id: user.id })
+        .select()
+        .single()
+
+      if (dbError) throw dbError
+      setFolders((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
+      setSuccess(`Folder "${newFolderName}" created.`)
+      setNewFolderName('')
+      setIsFolderModalOpen(false)
+    } catch (err: any) {
+      console.error(err)
+      setError(err.message || 'Failed to create folder.')
+    } finally {
+      setSavingFolder(false)
+    }
+  }
+
+  const handleUpdateMaterialFolder = async (materialId: string, folderId: string | null) => {
+    try {
+      const dbFolderId = folderId === '' ? null : folderId
+      const { error: dbError } = await supabase
+        .from('tbl_materials')
+        .update({ folder_id: dbFolderId })
+        .eq('id', materialId)
+
+      if (dbError) throw dbError
+      setMaterials((prev) =>
+        prev.map((m) => (m.id === materialId ? { ...m, folder_id: dbFolderId } : m))
+      )
+      setSuccess('Material folder updated.')
+    } catch (err: any) {
+      console.error(err)
+      setError(err.message || 'Failed to update folder.')
+    }
+  }
+
+  const handleUpdateMaterialTags = async (materialId: string, tagsString: string) => {
+    const tagsArray = tagsString
+      .split(',')
+      .map((t) => t.trim())
+      .filter((t) => t !== '')
+
+    try {
+      const { error: dbError } = await supabase
+        .from('tbl_materials')
+        .update({ tags: tagsArray })
+        .eq('id', materialId)
+
+      if (dbError) throw dbError
+      setMaterials((prev) =>
+        prev.map((m) => (m.id === materialId ? { ...m, tags: tagsArray } : m))
+      )
+      setSuccess('Material tags updated.')
+      setEditingTagsMaterialId(null)
+    } catch (err: any) {
+      console.error(err)
+      setError(err.message || 'Failed to update tags.')
+    }
+  }
+
   // Reassign Note Subject Handler
   const handleUpdateNoteSubject = async (noteId: string, subjectId: string) => {
     try {
@@ -639,6 +730,23 @@ export const Subjects: React.FC = () => {
         }
       }
     )
+  }
+
+  // Open Material File
+  const handleOpenFile = async (material: Material) => {
+    try {
+      const { data, error: urlError } = await supabase.storage
+        .from('materials')
+        .createSignedUrl(material.storage_path, 3600)
+
+      if (urlError) throw urlError
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+      }
+    } catch (err: any) {
+      console.error('Failed to open file:', err)
+      setError(err.message || 'Failed to open file.')
+    }
   }
 
   // Bulk Actions
@@ -990,9 +1098,22 @@ export const Subjects: React.FC = () => {
   const activeSubjectColorStyles = activeSubject ? getSubjectColorStyles(activeSubject.color) : null
 
   // Filtered lists for the active subject
-  const currentSubjectMaterials = materials.filter((m) =>
-    activeSubjectId === 'unassigned' ? !m.subject_id : m.subject_id === activeSubjectId
-  )
+  const currentSubjectMaterials = materials.filter((m) => {
+    const matchSubject = activeSubjectId === 'unassigned' ? !m.subject_id : m.subject_id === activeSubjectId
+    if (!matchSubject) return false
+    
+    const matchFolder = activeFolderId === 'all' 
+      ? true 
+      : activeFolderId === 'unassigned' 
+        ? !m.folder_id 
+        : m.folder_id === activeFolderId
+        
+    const matchTag = activeTagFilter === 'all'
+      ? true
+      : m.tags && m.tags.includes(activeTagFilter)
+      
+    return matchFolder && matchTag
+  })
 
   const currentSubjectNotes = notes.filter((n) =>
     activeSubjectId === 'unassigned' ? !n.subject_id : n.subject_id === activeSubjectId
@@ -1249,6 +1370,94 @@ export const Subjects: React.FC = () => {
                     )}
                   </div>
 
+                  {/* Folder and Tag Filter Console */}
+                  <div className="flex flex-col gap-4 p-4 rounded-2xl bg-[#060608]/40 border border-zinc-800">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      {/* Folder filters & Actions */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Folder className="h-4 w-4 text-purple-400" />
+                        <span className="text-xs font-bold text-zinc-400">Folders:</span>
+                        <button
+                          onClick={() => setActiveFolderId('all')}
+                          className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                            activeFolderId === 'all'
+                              ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                              : 'bg-white/5 text-zinc-400 hover:text-white border border-transparent'
+                          }`}
+                        >
+                          All
+                        </button>
+                        <button
+                          onClick={() => setActiveFolderId('unassigned')}
+                          className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                            activeFolderId === 'unassigned'
+                              ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                              : 'bg-white/5 text-zinc-400 hover:text-white border border-transparent'
+                          }`}
+                        >
+                          Unassigned
+                        </button>
+                        {folders.map((f) => (
+                          <button
+                            key={f.id}
+                            onClick={() => setActiveFolderId(f.id)}
+                            className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                              activeFolderId === f.id
+                                ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                                : 'bg-white/5 text-zinc-400 hover:text-white border border-transparent'
+                            }`}
+                          >
+                            {f.name}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => setIsFolderModalOpen(true)}
+                          className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 transition-all cursor-pointer"
+                        >
+                          <FolderPlus className="h-3 w-3" />
+                          <span>New Folder</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Tag Filter */}
+                    <div className="flex items-center gap-2 flex-wrap border-t border-zinc-800/60 pt-3">
+                      <Tag className="h-3.5 w-3.5 text-zinc-500" />
+                      <span className="text-xs font-bold text-zinc-500">Tags:</span>
+                      <button
+                        onClick={() => setActiveTagFilter('all')}
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
+                          activeTagFilter === 'all'
+                            ? 'bg-zinc-800 text-white'
+                            : 'bg-zinc-900/60 text-zinc-500 hover:text-zinc-300'
+                        }`}
+                      >
+                        All
+                      </button>
+                      {Array.from(
+                        new Set(
+                          materials
+                            .filter((m) =>
+                              activeSubjectId === 'unassigned' ? !m.subject_id : m.subject_id === activeSubjectId
+                            )
+                            .flatMap((m) => m.tags || [])
+                        )
+                      ).map((tag) => (
+                        <button
+                          key={tag}
+                          onClick={() => setActiveTagFilter(tag)}
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
+                            activeTagFilter === tag
+                              ? 'bg-purple-500/20 text-purple-400 border border-purple-500/20'
+                              : 'bg-zinc-900/60 text-zinc-500 hover:text-zinc-300 border border-transparent'
+                          }`}
+                        >
+                          #{tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Files List Layout */}
                   <div className="space-y-2">
                     {/* Bulk Selection Console */}
@@ -1323,32 +1532,111 @@ export const Subjects: React.FC = () => {
                             }}
                             className="rounded border-zinc-700 bg-black text-purple-600 focus:ring-0 cursor-pointer h-3.5 w-3.5 shrink-0"
                           />
-                          <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${getFileTypeColor(material.file_type)}`}>
-                            {getFileIcon(material.file_type)}
-                          </div>
-                          
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-white truncate">{material.file_name}</p>
-                            <div className="flex items-center gap-2 mt-0.5 text-[10px] text-zinc-500 font-semibold">
-                              <span className="uppercase text-[9px] font-bold">{material.file_type}</span>
-                              <span>•</span>
-                              <span>{formatFileSize(material.extracted_text)}</span>
-                              <span>•</span>
-                              <span>{formatDate(material.created_at)}</span>
+                          <button
+                            onClick={() => handleOpenFile(material)}
+                            className="flex flex-1 items-center gap-4 text-left min-w-0 cursor-pointer group/title focus:outline-none"
+                            title="Open file"
+                          >
+                            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-all ${getFileTypeColor(material.file_type)} group-hover/title:border-purple-500/30 group-hover/title:bg-purple-500/10`}>
+                              {getFileIcon(material.file_type)}
                             </div>
-                          </div>
+                            
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-white truncate group-hover/title:text-purple-400 flex items-center gap-1 transition-all">
+                                <span>{material.file_name}</span>
+                                <ExternalLink className="h-3 w-3 opacity-0 group-hover/title:opacity-100 transition-opacity text-purple-400 shrink-0" strokeWidth={1.5} />
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5 text-[10px] text-zinc-500 font-semibold">
+                                <span className="uppercase text-[9px] font-bold">{material.file_type}</span>
+                                <span>•</span>
+                                <span>{formatFileSize(material.extracted_text)}</span>
+                                <span>•</span>
+                                <span>{formatDate(material.created_at)}</span>
+                              </div>
+                              
+                              {/* Tags Display */}
+                              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                {material.tags && material.tags.map((tag) => (
+                                  <span key={tag} className="text-[9px] font-bold text-zinc-400 bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded-md">
+                                    #{tag}
+                                  </span>
+                                ))}
+                                {editingTagsMaterialId === material.id ? (
+                                  <form
+                                    onSubmit={(e) => {
+                                      e.preventDefault()
+                                      handleUpdateMaterialTags(material.id, editingTagsValue)
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="flex items-center gap-1"
+                                  >
+                                    <input
+                                      type="text"
+                                      value={editingTagsValue}
+                                      onChange={(e) => setEditingTagsValue(e.target.value)}
+                                      placeholder="tag1, tag2..."
+                                      className="bg-black/60 border border-purple-500/40 text-[9px] px-1 py-0.5 rounded w-20 focus:outline-none focus:border-purple-500 text-white"
+                                      autoFocus
+                                    />
+                                    <button
+                                      type="submit"
+                                      className="text-[9px] font-bold bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded cursor-pointer"
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingTagsMaterialId(null)}
+                                      className="text-[9px] text-zinc-500 hover:text-white px-1 py-0.5 cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </form>
+                                ) : (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setEditingTagsMaterialId(material.id)
+                                      setEditingTagsValue(material.tags ? material.tags.join(', ') : '')
+                                    }}
+                                    className="text-[9px] text-purple-400 hover:text-purple-300 font-bold flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                  >
+                                    <Plus className="h-2.5 w-2.5" />
+                                    <span>Tags</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </button>
 
-                          {/* Reassign dropdown */}
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          {/* Reassign dropdowns */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            {/* Subject Dropdown */}
                             <select
                               value={material.subject_id || ''}
                               onChange={(e) => handleUpdateMaterialSubject(material.id, e.target.value)}
                               className="bg-transparent border border-white/5 hover:border-white/10 rounded-lg text-[10px] px-2 py-1 text-zinc-400 hover:text-white focus:outline-none cursor-pointer transition-colors"
+                              title="Assign to Subject"
                             >
-                              <option value="" className="bg-[#050507]">Unassigned</option>
+                              <option value="" className="bg-[#050507]">No Subject</option>
                               {subjects.map((sub) => (
                                 <option key={sub.id} value={sub.id} className="bg-[#050507]">
                                   {sub.name}
+                                </option>
+                              ))}
+                            </select>
+
+                            {/* Folder Dropdown */}
+                            <select
+                              value={material.folder_id || ''}
+                              onChange={(e) => handleUpdateMaterialFolder(material.id, e.target.value)}
+                              className="bg-transparent border border-white/5 hover:border-white/10 rounded-lg text-[10px] px-2 py-1 text-zinc-400 hover:text-white focus:outline-none cursor-pointer transition-colors"
+                              title="Assign to Folder"
+                            >
+                              <option value="" className="bg-[#050507]">No Folder</option>
+                              {folders.map((fold) => (
+                                <option key={fold.id} value={fold.id} className="bg-[#050507]">
+                                  {fold.name}
                                 </option>
                               ))}
                             </select>
@@ -1697,6 +1985,66 @@ export const Subjects: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* CREATE FOLDER MODAL */}
+      {isFolderModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setIsFolderModalOpen(false)}></div>
+          <div className="double-bezel-outer max-w-sm w-full relative z-10">
+            <div className="double-bezel-inner p-6 space-y-6">
+              <div className="flex items-center justify-between pb-3 border-b border-white/5">
+                <h3 className="text-base font-bold text-white tracking-tight">Create Folder</h3>
+                <button onClick={() => setIsFolderModalOpen(false)} className="text-zinc-500 hover:text-white cursor-pointer text-sm font-semibold">✕</button>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  handleCreateFolder()
+                }}
+                className="space-y-5"
+              >
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Folder Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g., Week 1 Lectures, References"
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
+                    className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-xs text-white placeholder-zinc-700 focus:outline-none focus:border-purple-500/50"
+                    maxLength={50}
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => setIsFolderModalOpen(false)}
+                    className="px-4 py-2 rounded-xl border border-white/10 text-xs font-semibold text-zinc-400 hover:text-white transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingFolder || !newFolderName.trim()}
+                    className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-[0_4px_12px_rgba(139,92,246,0.2)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {savingFolder ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span>Creating...</span>
+                      </>
+                    ) : (
+                      <span>Create Folder</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CREATE / EDIT SUBJECT MODAL */}
       {isSubjectModalOpen && (
