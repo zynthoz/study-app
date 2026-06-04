@@ -13,17 +13,35 @@ const navLinks = [
 export const Navbar: React.FC = () => {
   const { user, signOut } = useAuth()
   const location = useLocation()
-  const [isScrolled, setIsScrolled] = useState(false)
+  
+  const [scrollProgress, setScrollProgress] = useState(0) // 0 to 1
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024)
 
   const [theme, setTheme] = useState<'light' | 'dark'>(
     (localStorage.getItem('theme') as 'light' | 'dark') || 'dark'
   )
 
   useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    let ticking = false
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 0)
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentScroll = window.scrollY
+          const maxScroll = 120 // interpolate over 120px of scroll
+          const progress = Math.min(Math.max(currentScroll / maxScroll, 0), 1)
+          setScrollProgress(progress)
+          ticking = false
+        })
+        ticking = true
+      }
     }
-    window.addEventListener('scroll', handleScroll)
+    window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
@@ -47,20 +65,44 @@ export const Navbar: React.FC = () => {
 
   const isNoteDetail = location.pathname.startsWith('/notes/')
 
+  // Interpolated Styles for the Scroll-Linked Transition
+  const currentPx = isNoteDetail ? 0 : (1 - scrollProgress) * (windowWidth < 640 ? 16 : 24)
+  const isDark = theme === 'dark'
+
+  const navStyle: React.CSSProperties = isNoteDetail
+    ? {}
+    : {
+        paddingTop: `${24 - 12 * scrollProgress}px`,
+        paddingBottom: `${8 - 2 * scrollProgress}px`,
+        paddingLeft: `${currentPx}px`,
+        paddingRight: `${currentPx}px`,
+        backgroundColor: `rgba(${isDark ? '8, 12, 20' : '244, 244, 245'}, ${scrollProgress * (isDark ? 0.85 : 0.95)})`,
+        borderBottom: `1px solid rgba(${isDark ? '255, 255, 255' : '0, 0, 0'}, ${scrollProgress * (isDark ? 0.05 : 0.08)})`,
+        backdropFilter: scrollProgress > 0 ? `blur(${scrollProgress * 20}px)` : 'none',
+        WebkitBackdropFilter: scrollProgress > 0 ? `blur(${scrollProgress * 20}px)` : 'none',
+      }
+
+  const innerStyle: React.CSSProperties = isNoteDetail
+    ? {}
+    : {
+        borderRadius: `${(1 - scrollProgress) * 28}px`,
+        borderWidth: '1px',
+        borderStyle: 'solid',
+        borderColor: `rgba(${isDark ? '255, 255, 255' : '0, 0, 0'}, ${(1 - scrollProgress) * (isDark ? 0.1 : 0.08)})`,
+        backgroundColor: `rgba(${isDark ? '0, 0, 0' : '255, 255, 255'}, ${(1 - scrollProgress) * (isDark ? 0.6 : 0.75)})`,
+        boxShadow: isDark
+          ? `0 10px 30px rgba(0, 0, 0, ${(1 - scrollProgress) * 0.5})`
+          : `0 10px 20px rgba(0, 0, 0, ${(1 - scrollProgress) * 0.04})`,
+      }
+
   return (
     <nav
-      className={`${isNoteDetail ? 'relative' : 'sticky top-0'} z-50 w-full transition-all duration-300 ${
-        isScrolled && !isNoteDetail
-          ? 'bg-black/85 backdrop-blur-xl border-b border-white/5 py-3'
-          : 'pt-6 pb-2 px-4 sm:px-6'
-      }`}
+      className={`${isNoteDetail ? 'relative' : 'sticky top-0'} z-50 w-full`}
+      style={navStyle}
     >
       <div
-        className={`mx-auto max-w-7xl transition-all duration-300 flex items-center justify-between ${
-          isScrolled && !isNoteDetail
-            ? 'w-full px-4 sm:px-6'
-            : 'rounded-full border border-white/10 bg-black/60 backdrop-blur-xl px-4 sm:px-6 py-3 shadow-[0_10px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_10px_35px_rgba(0,0,0,0.6)]'
-        }`}
+        className="mx-auto max-w-7xl flex items-center justify-between px-4 sm:px-6 py-3"
+        style={innerStyle}
       >
         {/* Brand/Logo */}
         <div className="flex items-center gap-6">
