@@ -27,6 +27,13 @@ import {
   FileText,
   Type,
   Share2,
+  MessageSquare,
+  Download,
+  Send,
+  Bot,
+  User,
+  X,
+  Sparkles,
 } from 'lucide-react'
 
 const parseMarkdownToHtml = (markdown: string): string => {
@@ -193,6 +200,14 @@ export const NoteDetail: React.FC = () => {
   const [shareEmail, setShareEmail] = useState('')
   const [existingShares, setExistingShares] = useState<any[]>([])
   const [loadingShares, setLoadingShares] = useState(false)
+
+  // Chat States
+  const [isChatOpen, setIsChatOpen] = useState(false)
+  const [chatMessages, setChatMessages] = useState<{role: 'user' | 'assistant'; content: string}[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const [chatLoading, setChatLoading] = useState(false)
+  const chatEndRef = useRef<HTMLDivElement>(null)
+  const chatInputRef = useRef<HTMLTextAreaElement>(null)
 
   // Stats States
   const [wordCount, setWordCount] = useState(0)
@@ -487,6 +502,215 @@ export const NoteDetail: React.FC = () => {
     })
   }
 
+  // Scroll chat to bottom
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [chatMessages, chatLoading])
+
+  // Focus chat input when panel opens
+  useEffect(() => {
+    if (isChatOpen && chatInputRef.current) {
+      setTimeout(() => chatInputRef.current?.focus(), 300)
+    }
+  }, [isChatOpen])
+
+  // Handle sending a chat message
+  const handleSendChat = async () => {
+    if (!chatInput.trim() || chatLoading || !session || !id) return
+
+    const userMessage = chatInput.trim()
+    setChatInput('')
+    setChatMessages((prev) => [...prev, { role: 'user', content: userMessage }])
+    setChatLoading(true)
+
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/chat-with-notes`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            note_id: id,
+            message: userMessage,
+            history: chatMessages.slice(-20),
+          }),
+        }
+      )
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to get response')
+      }
+
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: data.reply }])
+    } catch (err: any) {
+      console.error('Chat error:', err)
+      setChatMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: `Sorry, I couldn't respond. ${err.message || 'Please try again.'}` },
+      ])
+    } finally {
+      setChatLoading(false)
+    }
+  }
+
+  // Handle chat input key press
+  const handleChatKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSendChat()
+    }
+  }
+
+  // Render simple markdown in chat messages
+  const renderChatMarkdown = (text: string) => {
+    let html = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+
+    // Code blocks
+    html = html.replace(/```([\s\S]*?)```/g, (_, code) => `<pre class="chat-code-block"><code>${code.trim()}</code></pre>`)
+    // Inline code
+    html = html.replace(/`([^`]+)`/g, '<code class="chat-inline-code">$1</code>')
+    // Bold
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    // Italic
+    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    // Line breaks
+    html = html.replace(/\n/g, '<br />')
+
+    return html
+  }
+
+  // Handle PDF Export
+  const handleExportPDF = () => {
+    if (!editor) return
+
+    const content = editor.getHTML()
+    const subjectName = activeSubject ? activeSubject.name : 'Unassigned'
+    const dateStr = lastSaved ? lastSaved.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      alert('Please allow popups to export PDF.')
+      return
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>${title || 'Untitled Note'} — IndexAI</title>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #1a1a2e;
+            padding: 48px 56px;
+            line-height: 1.7;
+            font-size: 14px;
+          }
+          .header {
+            margin-bottom: 32px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e5e7eb;
+          }
+          .header h1 {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-bottom: 8px;
+            color: #0f0f1a;
+          }
+          .meta {
+            display: flex;
+            gap: 16px;
+            font-size: 11px;
+            color: #6b7280;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+          }
+          .meta span { display: flex; align-items: center; gap: 4px; }
+          .content h1 { font-size: 22px; font-weight: 800; margin: 24px 0 12px; color: #0f0f1a; }
+          .content h2 { font-size: 18px; font-weight: 700; margin: 20px 0 10px; color: #1a1a2e; }
+          .content h3 { font-size: 15px; font-weight: 700; margin: 16px 0 8px; color: #374151; }
+          .content p { margin: 8px 0; }
+          .content ul, .content ol { margin: 8px 0; padding-left: 24px; }
+          .content li { margin: 4px 0; }
+          .content strong { font-weight: 700; }
+          .content em { font-style: italic; }
+          .content blockquote {
+            margin: 12px 0;
+            padding: 12px 16px;
+            border-left: 3px solid #a78bfa;
+            background: #f5f3ff;
+            color: #4c1d95;
+            font-style: italic;
+          }
+          .content pre {
+            margin: 12px 0;
+            padding: 16px;
+            background: #f3f4f6;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+          }
+          .content code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+          }
+          .footer {
+            margin-top: 40px;
+            padding-top: 16px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 10px;
+            color: #9ca3af;
+            text-align: center;
+          }
+          @media print {
+            body { padding: 32px 40px; }
+            @page { margin: 1cm; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${(title || 'Untitled Note').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</h1>
+          <div class="meta">
+            <span>Subject: ${subjectName}</span>
+            <span>•</span>
+            <span>${dateStr}</span>
+            <span>•</span>
+            <span>${wordCount} words · ${readTime} min read</span>
+          </div>
+        </div>
+        <div class="content">${content}</div>
+        <div class="footer">Exported from IndexAI</div>
+      </body>
+      </html>
+    `)
+
+    printWindow.document.close()
+    setTimeout(() => {
+      printWindow.print()
+    }, 500)
+  }
+
   // Render Editor Toolbar
   const renderToolbar = () => {
     if (!editor) return null
@@ -677,124 +901,285 @@ export const NoteDetail: React.FC = () => {
           <Loader2 className="h-6 w-6 text-purple-400 animate-spin" strokeWidth={1.5} />
         </div>
       ) : (
-        <div className="double-bezel-outer relative z-10">
-          <div className="double-bezel-inner shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)]">
-            {/* Note Title Input, Subject Selection, & Stats Bar */}
-            <div className="p-6 sm:p-8 border-b border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-black/25 rounded-t-[calc(1.25rem-0.375rem)] flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <input
-                  type="text"
-                  value={title}
-                  disabled={isSharedNote}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Give your study guide a title..."
-                  className="flex-1 bg-transparent border-b border-transparent hover:border-zinc-200 dark:hover:border-white/5 focus:border-purple-500/40 focus:outline-none focus:ring-0 p-0 pb-1 font-display text-xl sm:text-2xl font-extrabold text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-700 tracking-tight transition-all duration-200 disabled:opacity-80"
-                />
-                
-                <div className="flex items-center gap-3">
-                  {/* Share button */}
-                  {!isSharedNote && (
-                    <button
-                      onClick={() => setIsShareModalOpen(true)}
-                      className="flex items-center gap-1.5 bg-purple-600/10 hover:bg-purple-600/20 border border-purple-500/20 rounded-xl px-3 py-1.5 text-xs text-purple-300 font-bold transition-all duration-200 cursor-pointer active:scale-98 shrink-0"
-                    >
-                      <Share2 className="h-3.5 w-3.5" />
-                      <span>Share</span>
-                    </button>
-                  )}
-
-                  {/* Custom Dropdown Selector */}
-                  <div ref={dropdownRef} className="relative shrink-0">
-                    <button
-                      onClick={() => !isSharedNote && setDropdownOpen(!dropdownOpen)}
+        <div className="flex flex-col lg:flex-row gap-6 items-start relative z-10 w-full">
+          {/* Note Editor Column */}
+          <div className={`w-full transition-all duration-300 ${isChatOpen ? 'lg:w-[calc(100%-380px)] xl:w-[calc(100%-440px)]' : 'lg:w-full'}`}>
+            <div className="double-bezel-outer relative">
+              <div className="double-bezel-inner shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)]">
+                {/* Note Title Input, Subject Selection, & Stats Bar */}
+                <div className="p-6 sm:p-8 border-b border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-black/25 rounded-t-[calc(1.25rem-0.375rem)] flex flex-col gap-4">
+                  <div className={`flex flex-col justify-between gap-4 ${isChatOpen ? 'xl:flex-row xl:items-center' : 'sm:flex-row sm:items-center'}`}>
+                    <input
+                      type="text"
+                      value={title}
                       disabled={isSharedNote}
-                      className="flex items-center gap-2 bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 hover:border-zinc-300 dark:hover:border-white/20 rounded-xl px-3 py-1.5 text-xs text-zinc-800 dark:text-zinc-300 font-bold transition-all duration-200 cursor-pointer active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Subject:</span>
-                    {activeSubject && (
-                      <span className={`h-2 w-2 rounded-full ${getSubjectColorStyles(activeSubject.color).dot} shrink-0`} />
-                    )}
-                    <span className="text-zinc-800 dark:text-zinc-200">{activeSubject ? activeSubject.name : 'Unassigned'}</span>
-                    <ChevronDown className={`h-3 w-3 text-zinc-500 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {/* Custom Dropdown Menu */}
-                  {dropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-56 rounded-xl border border-zinc-200 dark:border-white/10 bg-white/95 dark:bg-black/95 backdrop-blur-xl shadow-2xl z-30 py-1.5 animate-in fade-in slide-in-from-top-2 duration-205">
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="Give your study guide a title..."
+                      className="flex-1 min-w-0 bg-transparent border-b border-transparent hover:border-zinc-200 dark:hover:border-white/5 focus:border-purple-500/40 focus:outline-none focus:ring-0 p-0 pb-1 font-display text-xl sm:text-2xl font-extrabold text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-700 tracking-tight transition-all duration-200 disabled:opacity-80"
+                    />
+                    
+                    <div className="flex flex-wrap items-center gap-2 sm:justify-end shrink-0">
+                      {/* Export PDF button */}
                       <button
-                        onClick={() => {
-                          handleSubjectChange('')
-                          setDropdownOpen(false)
-                        }}
-                        className={`w-full text-left px-4 py-2 text-xs font-semibold flex items-center justify-between hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors ${
-                          !selectedSubjectId ? 'text-purple-600 dark:text-purple-400' : 'text-zinc-700 dark:text-zinc-300'
-                        }`}
+                        onClick={handleExportPDF}
+                        className="flex items-center gap-1.5 bg-zinc-100/80 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 border border-zinc-200/60 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-300 font-bold transition-all duration-200 cursor-pointer active:scale-98 shrink-0"
                       >
-                        <span>Unassigned</span>
-                        {!selectedSubjectId && <Check className="h-3.5 w-3.5" />}
+                        <Download className="h-3.5 w-3.5" />
+                        <span>Export PDF</span>
                       </button>
 
-                      <div className="h-[1px] bg-zinc-200 dark:bg-white/10 my-1" />
+                      {/* Chat with AI button */}
+                      <button
+                        onClick={() => setIsChatOpen(!isChatOpen)}
+                        className={`flex items-center gap-1.5 border rounded-xl px-3 py-1.5 text-xs font-bold transition-all duration-200 cursor-pointer active:scale-98 shrink-0 group ${
+                          isChatOpen
+                            ? 'bg-purple-600 text-white border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]'
+                            : 'bg-gradient-to-r from-purple-600/15 to-violet-600/15 hover:from-purple-600/25 hover:to-violet-600/25 border-purple-500/20 text-purple-300'
+                        }`}
+                      >
+                        <Sparkles className={`h-3.5 w-3.5 ${isChatOpen ? 'animate-pulse text-white' : 'group-hover:animate-pulse'}`} />
+                        <span>AI Chat</span>
+                      </button>
 
-                      <div className="max-h-60 overflow-y-auto">
-                        {subjects.map((sub) => {
-                          const isSelected = sub.id === selectedSubjectId
-                          const styles = getSubjectColorStyles(sub.color)
-                          return (
-                            <button
-                              key={sub.id}
-                              onClick={() => {
-                                handleSubjectChange(sub.id)
-                                setDropdownOpen(false)
-                              }}
-                              className={`w-full text-left px-4 py-2 text-xs font-semibold flex items-center justify-between hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors ${
-                                isSelected ? 'text-purple-600 dark:text-purple-400' : 'text-zinc-700 dark:text-zinc-300'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2 truncate">
-                                <span className={`h-2 w-2 rounded-full ${styles.dot} shrink-0`} />
-                                <span className="truncate">{sub.name}</span>
-                              </div>
-                              {isSelected && <Check className="h-3.5 w-3.5" />}
-                            </button>
-                          )
-                        })}
+                      {/* Share button */}
+                      {!isSharedNote && (
+                        <button
+                          onClick={() => setIsShareModalOpen(true)}
+                          className="flex items-center gap-1.5 bg-purple-600/10 hover:bg-purple-600/20 border border-purple-500/20 rounded-xl px-3 py-1.5 text-xs text-purple-300 font-bold transition-all duration-200 cursor-pointer active:scale-98 shrink-0"
+                        >
+                          <Share2 className="h-3.5 w-3.5" />
+                          <span>Share</span>
+                        </button>
+                      )}
+
+                      {/* Custom Dropdown Selector */}
+                      <div ref={dropdownRef} className="relative shrink-0">
+                        <button
+                          onClick={() => !isSharedNote && setDropdownOpen(!dropdownOpen)}
+                          disabled={isSharedNote}
+                          className="flex items-center gap-2 bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 hover:border-zinc-300 dark:hover:border-white/20 rounded-xl px-3 py-1.5 text-xs text-zinc-800 dark:text-zinc-300 font-bold transition-all duration-200 cursor-pointer active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                        <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Subject:</span>
+                        {activeSubject && (
+                          <span className={`h-2 w-2 rounded-full ${getSubjectColorStyles(activeSubject.color).dot} shrink-0`} />
+                        )}
+                        <span className="text-zinc-800 dark:text-zinc-200">{activeSubject ? activeSubject.name : 'Unassigned'}</span>
+                        <ChevronDown className={`h-3 w-3 text-zinc-500 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {/* Custom Dropdown Menu */}
+                      {dropdownOpen && (
+                        <div className="absolute right-0 mt-2 w-56 rounded-xl border border-zinc-200 dark:border-white/10 bg-white/95 dark:bg-black/95 backdrop-blur-xl shadow-2xl z-30 py-1.5 animate-in fade-in slide-in-from-top-2 duration-205">
+                          <button
+                            onClick={() => {
+                              handleSubjectChange('')
+                              setDropdownOpen(false)
+                            }}
+                            className={`w-full text-left px-4 py-2 text-xs font-semibold flex items-center justify-between hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors ${
+                              !selectedSubjectId ? 'text-purple-600 dark:text-purple-400' : 'text-zinc-700 dark:text-zinc-300'
+                            }`}
+                          >
+                            <span>Unassigned</span>
+                            {!selectedSubjectId && <Check className="h-3.5 w-3.5" />}
+                          </button>
+
+                          <div className="h-[1px] bg-zinc-200 dark:bg-white/10 my-1" />
+
+                          <div className="max-h-60 overflow-y-auto">
+                            {subjects.map((sub) => {
+                              const isSelected = sub.id === selectedSubjectId
+                              const styles = getSubjectColorStyles(sub.color)
+                              return (
+                                <button
+                                  key={sub.id}
+                                  onClick={() => {
+                                    handleSubjectChange(sub.id)
+                                    setDropdownOpen(false)
+                                  }}
+                                  className={`w-full text-left px-4 py-2 text-xs font-semibold flex items-center justify-between hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors ${
+                                    isSelected ? 'text-purple-600 dark:text-purple-400' : 'text-zinc-700 dark:text-zinc-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 truncate">
+                                    <span className={`h-2 w-2 rounded-full ${styles.dot} shrink-0`} />
+                                    <span className="truncate">{sub.name}</span>
+                                  </div>
+                                  {isSelected && <Check className="h-3.5 w-3.5" />}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
                       </div>
                     </div>
-                  )}
+                  </div>
+
+                  {/* Monospace Document Stats Bar */}
+                  <div className="flex flex-wrap items-center gap-4 text-[10px] font-mono text-zinc-400 dark:text-zinc-500 border-t border-zinc-200/50 dark:border-white/5 pt-3 mt-1 select-none">
+                    <div className="flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5 text-purple-500/50 dark:text-purple-400/40" />
+                      <span>WORDS: <strong className="text-zinc-700 dark:text-zinc-300 font-bold">{wordCount}</strong></span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Type className="h-3.5 w-3.5 text-purple-500/50 dark:text-purple-400/40" />
+                      <span>CHARS: <strong className="text-zinc-700 dark:text-zinc-300 font-bold">{charCount}</strong></span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5 text-purple-500/50 dark:text-purple-400/40" />
+                      <span>READ TIME: <strong className="text-zinc-700 dark:text-zinc-300 font-bold">{readTime} MIN</strong></span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sticky Floating Toolbar */}
+                {!isSharedNote && renderToolbar()}
+
+                {/* Editor Area with Academic Dot-Grid Background */}
+                <div className="prose-editor p-4 sm:p-8 min-h-[400px] rounded-b-[calc(1.25rem-0.375rem)] bg-white dark:bg-[#08080a] bg-[radial-gradient(rgba(139,92,246,0.05)_1px,transparent_1px)] dark:bg-[radial-gradient(rgba(167,139,250,0.03)_1px,transparent_1px)] [background-size:24px_24px] relative">
+                  <div className="max-w-[75ch] mx-auto relative z-10">
+                    <EditorContent editor={editor} />
                   </div>
                 </div>
               </div>
-
-              {/* Monospace Document Stats Bar */}
-              <div className="flex flex-wrap items-center gap-4 text-[10px] font-mono text-zinc-400 dark:text-zinc-500 border-t border-zinc-200/50 dark:border-white/5 pt-3 mt-1 select-none">
-                <div className="flex items-center gap-1.5">
-                  <FileText className="h-3.5 w-3.5 text-purple-500/50 dark:text-purple-400/40" />
-                  <span>WORDS: <strong className="text-zinc-700 dark:text-zinc-300 font-bold">{wordCount}</strong></span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Type className="h-3.5 w-3.5 text-purple-500/50 dark:text-purple-400/40" />
-                  <span>CHARS: <strong className="text-zinc-700 dark:text-zinc-300 font-bold">{charCount}</strong></span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-purple-500/50 dark:text-purple-400/40" />
-                  <span>READ TIME: <strong className="text-zinc-700 dark:text-zinc-300 font-bold">{readTime} MIN</strong></span>
-                </div>
-              </div>
-            </div>
-
-            {/* Sticky Floating Toolbar */}
-            {!isSharedNote && renderToolbar()}
-
-            {/* Editor Area with Academic Dot-Grid Background */}
-            <div className="prose-editor p-4 sm:p-8 min-h-[400px] rounded-b-[calc(1.25rem-0.375rem)] bg-white dark:bg-[#08080a] bg-[radial-gradient(rgba(139,92,246,0.05)_1px,transparent_1px)] dark:bg-[radial-gradient(rgba(167,139,250,0.03)_1px,transparent_1px)] [background-size:24px_24px] relative">
-              <div className="max-w-[75ch] mx-auto relative z-10">
-                <EditorContent editor={editor} />
-              </div>
             </div>
           </div>
+
+          {/* AI Chat Card Column */}
+          {isChatOpen && (
+            <div className="w-full lg:w-[356px] xl:w-[416px] shrink-0 double-bezel-outer animate-fade-in relative z-10 lg:sticky lg:top-6">
+              <div className="double-bezel-inner shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] bg-white dark:bg-[#08080a] h-[550px] lg:h-[calc(100vh-160px)] flex flex-col overflow-hidden">
+                {/* Chat Header */}
+                <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-zinc-200 dark:border-white/[0.06] bg-zinc-50/50 dark:bg-black/25">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-purple-500/20 to-violet-500/20 border border-purple-500/20 flex items-center justify-center">
+                      <Sparkles className="h-4 w-4 text-purple-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-zinc-900 dark:text-white tracking-tight">AI Study Assistant</h3>
+                      <p className="text-[10px] text-zinc-500 font-semibold">Chat about this note</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsChatOpen(false)}
+                    className="h-8 w-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5 transition-all duration-200 cursor-pointer"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* Chat Messages */}
+                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 scroll-smooth">
+                  {chatMessages.length === 0 && !chatLoading && (
+                    <div className="flex flex-col items-center justify-center h-full text-center px-6 gap-4 opacity-60">
+                      <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-purple-500/10 to-violet-500/10 border border-purple-500/10 flex items-center justify-center">
+                        <MessageSquare className="h-7 w-7 text-purple-500/50" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-zinc-400 mb-1">Ask anything about your note</p>
+                        <p className="text-xs text-zinc-600 leading-relaxed">
+                          "Explain this concept", "Quiz me on this",<br />"Summarize the key points"
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {chatMessages.map((msg, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex gap-3 animate-fade-in ${
+                        msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'
+                      }`}
+                    >
+                      <div
+                        className={`shrink-0 h-7 w-7 rounded-lg flex items-center justify-center mt-0.5 ${
+                          msg.role === 'user'
+                            ? 'bg-purple-500/15 border border-purple-500/20'
+                            : 'bg-white/5 border border-white/[0.06]'
+                        }`}
+                      >
+                        {msg.role === 'user' ? (
+                          <User className="h-3.5 w-3.5 text-purple-400" />
+                        ) : (
+                          <Bot className="h-3.5 w-3.5 text-zinc-400" />
+                        )}
+                      </div>
+                      <div
+                        className={`max-w-[80%] rounded-2xl px-4 py-3 text-[13px] leading-relaxed ${
+                          msg.role === 'user'
+                            ? 'bg-purple-500/15 border border-purple-500/15 text-purple-100 rounded-tr-md'
+                            : 'bg-white/[0.04] border border-white/[0.06] text-zinc-300 rounded-tl-md'
+                        }`}
+                      >
+                        <div
+                          className="chat-message-content"
+                          dangerouslySetInnerHTML={{ __html: renderChatMarkdown(msg.content) }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+
+                  {chatLoading && (
+                    <div className="flex gap-3 animate-fade-in">
+                      <div className="shrink-0 h-7 w-7 rounded-lg flex items-center justify-center mt-0.5 bg-white/5 border border-white/[0.06]">
+                        <Bot className="h-3.5 w-3.5 text-zinc-400" />
+                      </div>
+                      <div className="bg-white/[0.04] border border-white/[0.06] rounded-2xl rounded-tl-md px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-purple-400/60 animate-bounce [animation-delay:0ms]"></span>
+                            <span className="h-1.5 w-1.5 rounded-full bg-purple-400/60 animate-bounce [animation-delay:150ms]"></span>
+                            <span className="h-1.5 w-1.5 rounded-full bg-purple-400/60 animate-bounce [animation-delay:300ms]"></span>
+                          </div>
+                          <span className="text-[11px] text-zinc-500 font-semibold">Thinking...</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div ref={chatEndRef} />
+                </div>
+
+                {/* Chat Input */}
+                <div className="shrink-0 p-4 border-t border-zinc-200 dark:border-white/[0.06] bg-zinc-50/50 dark:bg-black/25">
+                  <div className="flex items-end gap-2">
+                    <div className="flex-1 relative">
+                      <textarea
+                        ref={chatInputRef}
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={handleChatKeyDown}
+                        placeholder="Ask about your notes..."
+                        rows={1}
+                        className="w-full resize-none rounded-xl bg-white/[0.04] border border-white/[0.08] focus:border-purple-500/30 focus:ring-0 focus:outline-none px-4 py-3 pr-10 text-[13px] text-white placeholder-zinc-600 transition-all duration-200 max-h-32 bg-transparent"
+                        style={{ minHeight: '44px' }}
+                        onInput={(e) => {
+                          const target = e.target as HTMLTextAreaElement
+                          target.style.height = '44px'
+                          target.style.height = `${Math.min(target.scrollHeight, 128)}px`
+                        }}
+                      />
+                    </div>
+                    <button
+                      onClick={handleSendChat}
+                      disabled={!chatInput.trim() || chatLoading}
+                      className="h-[44px] w-[44px] shrink-0 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:bg-white/5 disabled:border-white/[0.06] border border-purple-500/50 disabled:border-white/[0.06] flex items-center justify-center transition-all duration-200 cursor-pointer disabled:cursor-not-allowed active:scale-95"
+                    >
+                      {chatLoading ? (
+                        <Loader2 className="h-4 w-4 text-white/40 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4 text-white disabled:text-zinc-600" />
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-zinc-600 mt-2 text-center font-medium">Press Enter to send · Shift+Enter for new line</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
+
       {/* SHARING MODAL */}
       {isShareModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

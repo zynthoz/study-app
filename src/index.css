@@ -742,3 +742,62 @@ html.study-session-active nav {
   visibility: hidden !important;
   transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1) !important;
 }
+
+/* ───────────────────────────────────────────────── */
+/* AI Chat Message Styles                           */
+/* ───────────────────────────────────────────────── */
+
+.chat-message-content strong {
+  font-weight: 700;
+  color: inherit;
+}
+
+.chat-message-content em {
+  font-style: italic;
+}
+
+.chat-code-block {
+  display: block;
+  margin: 8px 0;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-inline-code {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 11px;
+}
+
+/* ───────────────────────────────────────────────── */
+/* Print / PDF Export Styles                        */
+/* ───────────────────────────────────────────────── */
+
+@media print {
+  /* Hide all UI chrome */
+  nav, .sticky, button, .fixed, [class*="backdrop-blur"] {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: #1a1a2e !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  @page {
+    margin: 1.5cm;
+  }
+}

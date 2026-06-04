@@ -23,7 +23,7 @@ const AppLayout: React.FC = () => {
 
       <Navbar />
       
-      <main className="flex-1 w-full relative z-10">
+      <main className="flex-1 w-full relative">
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/subjects" element={<Subjects />} />

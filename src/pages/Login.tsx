@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
-import { Mail, Lock, BookOpen, AlertCircle, ArrowRight } from 'lucide-react'
+import { Mail, Lock, AlertCircle, ArrowRight } from 'lucide-react'
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('')
@@ -39,8 +39,12 @@ export const Login: React.FC = () => {
       <div className="z-10 w-full max-w-md">
         {/* Brand Header */}
         <div className="flex flex-col items-center justify-center text-center mb-8 animate-fade-in">
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-tr from-brand-600 to-purple-500 shadow-[0_0_25px_rgba(139,92,246,0.3)] mb-4">
-            <BookOpen className="h-7 w-7 text-white" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-500 shadow-[0_0_25px_rgba(168,85,247,0.25)] mb-4">
+            <svg viewBox="0 0 100 100" className="h-9 w-9 text-white" fill="none" stroke="currentColor">
+              <rect x="30" y="30" width="40" height="40" rx="4" strokeWidth="5.5" />
+              <rect x="30" y="30" width="40" height="40" rx="4" transform="rotate(45, 50, 50)" opacity="0.6" strokeWidth="3.5" />
+              <circle cx="50" cy="50" r="6.5" fill="currentColor" stroke="none" />
+            </svg>
           </div>
           <h2 className="font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
             IndexAI
