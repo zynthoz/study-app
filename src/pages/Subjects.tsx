@@ -3060,12 +3060,18 @@ export const Subjects: React.FC = () => {
                 </span>
               </div>
 
-              {/* Progress Line */}
-              <div className="w-full max-w-4xl mx-auto mt-3 h-1 bg-zinc-900 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-purple-500 transition-all duration-300"
-                  style={{ width: `${((currentCardIndex) / activeStudySet.cards.length) * 100}%` }}
-                />
+              {/* Progress Bar */}
+              <div className="w-full max-w-4xl mx-auto mt-4 space-y-2">
+                <div className="flex justify-between items-center text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">
+                  <span>Progress</span>
+                  <span>{Math.round(((currentCardIndex + 1) / activeStudySet.cards.length) * 100)}%</span>
+                </div>
+                <div className="w-full h-2 bg-zinc-950 border border-white/5 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-purple-500 transition-all duration-300 rounded-full"
+                    style={{ width: `${((currentCardIndex + 1) / activeStudySet.cards.length) * 100}%` }}
+                  />
+                </div>
               </div>
 
               {/* Card Container */}
