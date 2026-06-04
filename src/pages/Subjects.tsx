@@ -1237,6 +1237,17 @@ export const Subjects: React.FC = () => {
     return () => window.removeEventListener('keydown', handleStudyKeyDown)
   }, [activeStudySet, currentCardIndex, studyFinished])
 
+  useEffect(() => {
+    if (activeStudySet !== null) {
+      document.documentElement.classList.add('study-session-active')
+    } else {
+      document.documentElement.classList.remove('study-session-active')
+    }
+    return () => {
+      document.documentElement.classList.remove('study-session-active')
+    }
+  }, [activeStudySet])
+
   // Get active subject metadata
   const activeSubject = subjects.find((s) => s.id === activeSubjectId)
   const activeSubjectColorStyles = activeSubject ? getSubjectColorStyles(activeSubject.color) : null

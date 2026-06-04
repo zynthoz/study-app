@@ -735,7 +735,10 @@ html.light .bg-\[\#0c101c\] {
   transform: rotateY(180deg);
 }
 
-
-
-
-
+/* Hide App Navbar during an active flashcard study session */
+html.study-session-active nav {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1) !important;
+}
