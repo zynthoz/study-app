@@ -507,7 +507,7 @@ export const Exams: React.FC = () => {
                       </span>
                     </div>
 
-                    <h3 className="font-display text-base sm:text-lg font-bold text-white group-hover:text-purple-300 transition-colors truncate">
+                    <h3 className="font-display text-base sm:text-lg font-bold text-white group-hover:text-brand-300 transition-colors truncate">
                       {exam.title || 'Untitled Exam'}
                     </h3>
                   </Link>
@@ -538,7 +538,7 @@ export const Exams: React.FC = () => {
                         <button
                           onClick={(e) => handleDeleteExam(e, exam.id, exam.title)}
                           disabled={deletingId === exam.id}
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-500/0 border border-transparent text-zinc-500 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-transparent border border-transparent text-zinc-500 hover:bg-white/10 hover:border-white/10 hover:text-red-400 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
                           title="Delete Exam"
                         >
                           {deletingId === exam.id ? (
@@ -652,7 +652,7 @@ export const Exams: React.FC = () => {
 
                   {/* Simulated progress indicator */}
                   <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden max-w-[240px]">
-                    <div className="bg-gradient-to-r from-purple-500 to-indigo-500 h-full w-2/3 rounded-full animate-pulse"></div>
+                    <div className="bg-brand-500 h-full w-2/3 rounded-full animate-pulse"></div>
                   </div>
                 </div>
               ) : (

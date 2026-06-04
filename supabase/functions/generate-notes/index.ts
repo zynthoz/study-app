@@ -1,6 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai";
+import { checkRateLimit } from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -89,6 +90,13 @@ Deno.serve(async (req: Request) => {
       return errorResponse("Invalid or expired token", 401);
     }
 
+    // --- Rate Limit check (max 5 requests per minute) ---
+    const rateLimit = await checkRateLimit(supabaseAdmin, user.id, "generate-notes", 5, 60000);
+    if (!rateLimit.allowed) {
+      const resetStr = rateLimit.resetTime ? rateLimit.resetTime.toLocaleTimeString() : "soon";
+      return errorResponse(`Too many notes generation requests. Please try again after ${resetStr}.`, 429);
+    }
+
     // --- Parse request body ---
     const body = await req.json();
     const { material_ids, subject_id } = body;
@@ -101,6 +109,12 @@ Deno.serve(async (req: Request) => {
       return errorResponse(
         "material_ids is required and must be a non-empty array"
       );
+    }
+
+    // --- Material quantity check (max 5 selected) ---
+    const MAX_MATERIALS = 5;
+    if (material_ids.length > MAX_MATERIALS) {
+      return errorResponse(`You can select a maximum of ${MAX_MATERIALS} materials at a time.`, 400);
     }
 
 
@@ -170,7 +184,14 @@ Deno.serve(async (req: Request) => {
     const genAI = new GoogleGenerativeAI(geminiApiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
 
-    const combinedText = textParts.join("\n\n---\n\n");
+    const combinedText = textParts.join("\n\n---\n\n").trim();
+
+    if (combinedText.length === 0 && imageParts.length === 0) {
+      return errorResponse(
+        "The selected materials have no extracted text. This usually means the files were uploaded before a parsing fix. Please delete and re-upload them."
+      );
+    }
+
     const promptText = NOTES_PROMPT + combinedText;
 
     // Build content array: text prompt + any image parts
@@ -186,15 +207,24 @@ Deno.serve(async (req: Request) => {
       return errorResponse("Gemini returned an empty response", 500);
     }
 
-    // --- Extract a title from the first heading or first line ---
+    // --- Extract a title from the markdown content ---
     let title = "Untitled Notes";
-    const headingMatch = generatedNotes.match(/^#+\s+(.+)$/m);
-    if (headingMatch) {
-      title = headingMatch[1].trim();
-    } else {
-      const firstLine = generatedNotes.split("\n")[0]?.trim();
-      if (firstLine && firstLine.length <= 120) {
-        title = firstLine;
+    const lines = generatedNotes
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .map((line: string) => line.trim())
+      .filter((line: string) => line.length > 0 && !line.startsWith("```"));
+
+    const headingLine = lines.find((line: string) => line.startsWith("#"));
+    if (headingLine) {
+      title = headingLine.replace(/^#+\s*/, "").trim();
+    } else if (lines.length > 0) {
+      const cleanLine = lines[0]
+        .replace(/^[\s*#_-]+/, "")
+        .replace(/[\s*#_-]+$/, "")
+        .trim();
+      if (cleanLine.length > 0) {
+        title = cleanLine.substring(0, 100);
       }
     }
 

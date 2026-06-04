@@ -1,5 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkRateLimit } from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -82,13 +83,43 @@ async function extractDocxText(buffer: ArrayBuffer): Promise<string> {
 }
 
 /**
- * Extract text from a PDF file using pdf-parse.
+ * Extract text from a PDF file using the Gemini API.
+ * Gemini handles PDFs natively and works reliably in Supabase Edge Functions.
  */
 async function extractPdfText(buffer: ArrayBuffer): Promise<string> {
-  const pdfParse = (await import("https://esm.sh/pdf-parse@1.1.1")).default;
-  const uint8 = new Uint8Array(buffer);
-  const result = await pdfParse(uint8);
-  return result.text;
+  const { GoogleGenerativeAI } = await import("https://esm.sh/@google/generative-ai");
+  const geminiApiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("gemini_api_key");
+  if (!geminiApiKey) {
+    throw new Error("GEMINI_API_KEY is not configured — cannot extract PDF text");
+  }
+
+  const genAI = new GoogleGenerativeAI(geminiApiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
+
+  // Convert buffer to base64 for Gemini inline data
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  const base64 = btoa(binary);
+
+  const result = await model.generateContent([
+    {
+      inlineData: {
+        mimeType: "application/pdf",
+        data: base64,
+      },
+    },
+    { text: "Extract all text content from this PDF document. Return ONLY the raw text, preserving paragraphs and structure. Do not add any commentary, headings, or formatting that is not in the original document." },
+  ]);
+
+  const text = result.response.text();
+  if (!text || text.trim().length === 0) {
+    throw new Error("Gemini returned empty text for this PDF");
+  }
+  console.log(`PDF text extracted successfully: ${text.length} characters`);
+  return text;
 }
 
 Deno.serve(async (req: Request) => {
@@ -124,6 +155,13 @@ Deno.serve(async (req: Request) => {
       return errorResponse("Invalid or expired token", 401);
     }
 
+    // --- Rate Limit check (max 10 requests per minute) ---
+    const rateLimit = await checkRateLimit(supabaseAdmin, user.id, "parse-material", 10, 60000);
+    if (!rateLimit.allowed) {
+      const resetStr = rateLimit.resetTime ? rateLimit.resetTime.toLocaleTimeString() : "soon";
+      return errorResponse(`Too many upload requests. Please try again after ${resetStr}.`, 429);
+    }
+
     // --- Parse multipart form data ---
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
@@ -131,6 +169,12 @@ Deno.serve(async (req: Request) => {
 
     if (!file) {
       return errorResponse("No file provided in form data");
+    }
+
+    // --- Payload size check (max 10MB) ---
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      return errorResponse("File size exceeds the 10MB limit.", 400);
     }
 
     const fileName = file.name;

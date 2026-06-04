@@ -508,7 +508,7 @@ export const NoteDetail: React.FC = () => {
     }
 
     return (
-      <div className="sticky top-4 z-20 mx-4 sm:mx-6 my-3 p-1.5 flex flex-wrap items-center gap-1 border border-zinc-200/80 dark:border-white/10 bg-white/70 dark:bg-[#0c0c0f]/75 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.03)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.4)] rounded-xl transition-all duration-200">
+      <div className="sticky top-4 z-20 mx-4 sm:mx-6 my-3 p-1.5 flex flex-wrap items-center gap-1 border border-zinc-200 dark:border-white/10 bg-white/95 dark:bg-[#0c0c0f]/95 backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.5)] rounded-xl transition-all duration-200">
         <button
           onClick={() => editor.chain().focus().toggleBold().run()}
           disabled={!editor.can().chain().focus().toggleBold().run()}

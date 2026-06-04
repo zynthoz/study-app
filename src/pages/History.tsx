@@ -134,7 +134,7 @@ export const HistoryPage: React.FC = () => {
                       <Award className="h-4.5 w-4.5" strokeWidth={1.5} />
                     </div>
                     <div className="min-w-0 space-y-1">
-                      <h3 className="text-sm font-bold text-white group-hover:text-purple-300 transition-colors truncate">
+                      <h3 className="text-sm font-bold text-white group-hover:text-brand-300 transition-colors truncate">
                         {examTitle}
                       </h3>
                       <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 font-mono">

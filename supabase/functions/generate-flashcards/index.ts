@@ -82,15 +82,15 @@ Deno.serve(async (req: Request) => {
     }
 
     // --- Rate Limit check (max 5 requests per minute) ---
-    const rateLimit = await checkRateLimit(supabaseAdmin, user.id, "generate-exam", 5, 60000);
+    const rateLimit = await checkRateLimit(supabaseAdmin, user.id, "generate-flashcards", 5, 60000);
     if (!rateLimit.allowed) {
       const resetStr = rateLimit.resetTime ? rateLimit.resetTime.toLocaleTimeString() : "soon";
-      return errorResponse(`Too many exam generation requests. Please try again after ${resetStr}.`, 429);
+      return errorResponse(`Too many flashcard generation requests. Please try again after ${resetStr}.`, 429);
     }
 
     // --- Parse request body ---
     const body = await req.json();
-    const { material_ids, num_questions, percentages, subject_id } = body;
+    const { material_ids, num_cards, subject_id } = body;
 
     if (
       !material_ids ||
@@ -108,34 +108,14 @@ Deno.serve(async (req: Request) => {
       return errorResponse(`You can select a maximum of ${MAX_MATERIALS} materials at a time.`, 400);
     }
 
-    if (!num_questions || typeof num_questions !== "number" || num_questions < 1) {
-      return errorResponse("num_questions is required and must be a number >= 1");
+    if (!num_cards || typeof num_cards !== "number" || num_cards < 1) {
+      return errorResponse("num_cards is required and must be a number >= 1");
     }
 
-    // --- Question quantity limit (max 30 questions) ---
-    const MAX_QUESTIONS = 30;
-    if (num_questions > MAX_QUESTIONS) {
-      return errorResponse(`Maximum number of questions per exam is ${MAX_QUESTIONS}.`, 400);
-    }
-
-    if (!percentages || typeof percentages !== "object") {
-      return errorResponse("percentages is required and must be an object");
-    }
-
-    const { mc, id, tof, mtof, enum: enumeration } = percentages;
-    if (
-      typeof mc !== "number" ||
-      typeof id !== "number" ||
-      typeof tof !== "number" ||
-      typeof mtof !== "number" ||
-      typeof enumeration !== "number"
-    ) {
-      return errorResponse("All percentage values must be numbers");
-    }
-
-    const sum = mc + id + tof + mtof + enumeration;
-    if (Math.abs(sum - 100) > 0.1) {
-      return errorResponse(`Question type percentages must sum to 100, got ${sum}`);
+    // --- Card quantity limit (max 30 cards) ---
+    const MAX_CARDS = 30;
+    if (num_cards > MAX_CARDS) {
+      return errorResponse(`Maximum number of flashcards per set is ${MAX_CARDS}.`, 400);
     }
 
     // --- Fetch materials ---
@@ -164,7 +144,6 @@ Deno.serve(async (req: Request) => {
 
     for (const material of materials) {
       if (material.file_type === "image") {
-        // Download the image from Supabase Storage and base64 encode it
         const { data: fileData, error: downloadError } =
           await supabaseAdmin.storage
             .from("materials")
@@ -195,7 +174,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // --- Call Gemini 1.5 Pro ---
+    // --- Call Gemini API ---
     const geminiApiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("gemini_api_key");
     if (!geminiApiKey) {
       return errorResponse("gemini_api_key is not configured", 500);
@@ -209,34 +188,22 @@ Deno.serve(async (req: Request) => {
 
     const combinedText = textParts.join("\n\n---\n\n");
 
-    const promptText = `You are an exam question generator. Based on the study material below, generate exactly ${num_questions} exam questions.
+    const promptText = `You are a professional study flashcard generator. Based on the study material below, generate exactly ${num_cards} flashcards.
 
-Distribute the question types using approximately these proportions:
-- Multiple choice: ${mc}%
-- Identification: ${id}%
-- True or False: ${tof}%
-- Modified True or False: ${mtof}%
-- Enumeration: ${enumeration}%
+Each flashcard must contain:
+1. "front": A concise, clear question, key concept, or term.
+2. "back": A concise definition, answer, or explanation that is easy to recall.
 
-The proportions are a guide. If the content does not support a type well, substitute with a more fitting type. Always prioritize question quality over hitting exact percentages.
-
-For Modified True or False, always use exactly these four choices:
-A: Both statements are True.
-B: Both statements are False.
-C: The first statement is True, and the second is False.
-D: The first statement is False, and the second is True.
+Keep the front and back texts clear, readable, and highly focused for active recall study sessions.
 
 Return JSON matching the following schema:
 {
-  "title": "A descriptive, concise title for this exam based on the content",
-  "questions": [
+  "title": "A descriptive, concise title for this flashcard deck based on the content",
+  "cards": [
     {
-      "id": 1,
-      "type": "multiple_choice" | "identification" | "true_or_false" | "modified_true_or_false" | "enumeration",
-      "question": "string question text",
-      "choices": ["choice 1", "choice 2", ...], // Array of choices. For identification and enumeration, this must be an empty array []. For true_or_false, this must be exactly ["True", "False"]. For modified_true_or_false, it must be the standard A/B/C/D choices listed above.
-      "answer": "string or array", // Correct answer. For multiple_choice and modified_true_or_false, this must be "A", "B", "C", or "D". For true_or_false, this must be "True" or "False". For identification, this is the correct answer string. For enumeration, this must be a JSON array of strings containing all correct answers.
-      "explanation": "string explanation of why the answer is correct"
+      "id": number,
+      "front": "string term or question",
+      "back": "string definition or answer"
     }
   ]
 }
@@ -244,7 +211,6 @@ Return JSON matching the following schema:
 Study material:
 ${combinedText}`;
 
-    // Build content array: text prompt + any image parts
     const contentParts: any[] = [{ text: promptText }];
     for (const imgPart of imageParts) {
       contentParts.push(imgPart);
@@ -257,28 +223,28 @@ ${combinedText}`;
       return errorResponse("Gemini returned an empty response", 500);
     }
 
-    let examData;
+    let deckData;
     try {
-      examData = JSON.parse(responseText);
+      deckData = JSON.parse(responseText);
     } catch (parseError) {
       console.error("Failed to parse Gemini JSON:", responseText);
-      return errorResponse("Failed to parse the generated questions from Gemini", 500);
+      return errorResponse("Failed to parse the generated flashcards from Gemini", 500);
     }
 
-    const title = examData.title || "Untitled Exam";
-    const questions = examData.questions || [];
+    const title = deckData.title || "Untitled Flashcard Set";
+    const cards = deckData.cards || [];
 
-    if (!Array.isArray(questions) || questions.length === 0) {
-      return errorResponse("No questions generated", 500);
+    if (!Array.isArray(cards) || cards.length === 0) {
+      return errorResponse("No flashcards generated", 500);
     }
 
-    // --- Insert into tbl_exams ---
-    const { data: exam, error: insertError } = await supabaseAdmin
-      .from("tbl_exams")
+    // --- Insert into tbl_flashcards ---
+    const { data: deck, error: insertError } = await supabaseAdmin
+      .from("tbl_flashcards")
       .insert({
         user_id: user.id,
         title,
-        questions,
+        cards,
         material_ids,
         subject_id: subject_id && subject_id !== "" && subject_id !== "null" ? subject_id : null,
       })
@@ -287,14 +253,14 @@ ${combinedText}`;
 
     if (insertError) {
       return errorResponse(
-        `Failed to save exam: ${insertError.message}`,
+        `Failed to save flashcard deck: ${insertError.message}`,
         500
       );
     }
 
-    return successResponse(exam);
+    return successResponse(deck);
   } catch (err: any) {
-    console.error("generate-exam error:", err);
+    console.error("generate-flashcards error:", err);
     return errorResponse(err.message || "Internal server error", 500);
   }
 });

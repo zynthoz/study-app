@@ -45,3 +45,22 @@ create table tbl_exam_sessions (
   total integer,
   completed_at timestamptz
 );
+
+create table tbl_rate_limits (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users not null,
+  endpoint text not null,
+  request_count integer default 1,
+  window_start timestamptz default now(),
+  unique(user_id, endpoint)
+);
+
+create table tbl_flashcards (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users not null,
+  subject_id uuid references tbl_subjects on delete set null,
+  title text not null,
+  material_ids uuid[],
+  cards jsonb not null, -- Array of { id: number, front: text, back: text }
+  created_at timestamptz default now()
+);

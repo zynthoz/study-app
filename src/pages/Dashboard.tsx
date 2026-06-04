@@ -36,6 +36,11 @@ interface Exam {
   subject_id: string | null
 }
 
+interface FlashcardSet {
+  id: string
+  subject_id: string | null
+}
+
 interface ExamSession {
   id: string
   score: number
@@ -67,6 +72,7 @@ export const Dashboard: React.FC = () => {
   const [materials, setMaterials] = useState<Material[]>([])
   const [notes, setNotes] = useState<Note[]>([])
   const [exams, setExams] = useState<Exam[]>([])
+  const [flashcardSets, setFlashcardSets] = useState<FlashcardSet[]>([])
   const [sessions, setSessions] = useState<ExamSession[]>([])
 
   // Modal States
@@ -129,6 +135,22 @@ export const Dashboard: React.FC = () => {
       setNotes(notesRes.data || [])
       setExams(examsRes.data || [])
       setSessions((sessionsRes.data as any) || [])
+
+      try {
+        const { data: fData, error: fError } = await supabase
+          .from('tbl_flashcards')
+          .select('id, subject_id')
+          .eq('user_id', user.id)
+        if (fError) {
+          console.warn("[Dashboard] tbl_flashcards query error (it may not exist yet):", fError.message)
+          setFlashcardSets([])
+        } else {
+          setFlashcardSets(fData || [])
+        }
+      } catch (fErr) {
+        console.warn("[Dashboard] Failed to fetch flashcards:", fErr)
+        setFlashcardSets([])
+      }
     } catch (err: any) {
       console.error('Error loading dashboard data:', err)
       setError('Failed to load dashboard data.')
@@ -265,6 +287,7 @@ export const Dashboard: React.FC = () => {
   const totalMaterials = materials.length
   const totalNotes = notes.length
   const totalExams = exams.length
+  const totalFlashcards = flashcardSets.length
   const totalItems = totalMaterials + totalNotes + totalExams
 
   const materialsPct = totalItems > 0 ? totalMaterials / totalItems : 0
@@ -373,7 +396,7 @@ export const Dashboard: React.FC = () => {
                           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                             <button
                               onClick={(e) => openEditModal(subject, e)}
-                              className="p-1 rounded-lg text-zinc-500 hover:text-purple-400 hover:bg-purple-500/10 transition-colors cursor-pointer"
+                              className="p-1 rounded-lg text-zinc-500 hover:text-purple-400 hover:bg-white/10 transition-colors cursor-pointer"
                               title="Edit Subject"
                             >
                               <Edit2 className="h-3 w-3" strokeWidth={1.5} />
@@ -381,7 +404,7 @@ export const Dashboard: React.FC = () => {
                             <button
                               onClick={(e) => handleDeleteSubject(subject.id, e)}
                               disabled={deletingSubjectId === subject.id}
-                              className="p-1 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50"
+                              className="p-1 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-white/10 transition-colors cursor-pointer disabled:opacity-50"
                               title="Delete Subject"
                             >
                               {deletingSubjectId === subject.id ? (
@@ -606,6 +629,10 @@ export const Dashboard: React.FC = () => {
                   <div className="flex items-center justify-between text-xs py-1.5 border-b border-white/5">
                     <span className="text-zinc-400 font-semibold">Practice Exams</span>
                     <span className="font-bold text-white font-mono">{loading ? '—' : totalExams}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs py-1.5 border-b border-white/5">
+                    <span className="text-zinc-400 font-semibold">Flashcard Decks</span>
+                    <span className="font-bold text-white font-mono">{loading ? '—' : totalFlashcards}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs py-1.5">
                     <span className="text-zinc-400 font-semibold">Average Retention</span>

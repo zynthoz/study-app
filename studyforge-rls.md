@@ -59,7 +59,24 @@ CREATE POLICY "Users can read own sessions"
   ON tbl_exam_sessions FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own sessions"
   ON tbl_exam_sessions FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+ALTER TABLE tbl_rate_limits ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users cannot view or alter rate limits"
+  ON tbl_rate_limits FOR ALL TO authenticated USING (false);
+
+ALTER TABLE tbl_flashcards ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read own flashcards"
+  ON tbl_flashcards FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own flashcards"
+  ON tbl_flashcards FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own flashcards"
+  ON tbl_flashcards FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own flashcards"
+  ON tbl_flashcards FOR DELETE USING (auth.uid() = user_id);
 ```
+
 
 ### 3. Storage Policies for the `materials` bucket
 

@@ -101,7 +101,7 @@ export const Navbar: React.FC = () => {
           
           <button
             onClick={signOut}
-            className="flex items-center gap-2 rounded-full bg-zinc-900 px-3.5 py-1.5 text-xs font-semibold text-zinc-400 border border-white/5 hover:text-red-400 hover:border-red-500/25 transition-all duration-300 cursor-pointer hover:bg-red-500/5 active:scale-[0.98]"
+            className="flex items-center gap-2 rounded-full bg-zinc-900 px-3.5 py-1.5 text-xs font-semibold text-zinc-400 border border-white/5 hover:text-red-400 hover:border-white/10 transition-all duration-300 cursor-pointer hover:bg-white/5 active:scale-[0.98]"
           >
             <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
             <span className="hidden xs:inline">Sign Out</span>

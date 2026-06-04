@@ -571,7 +571,7 @@ export const Materials: React.FC = () => {
                 <button
                   onClick={() => handleDelete(material)}
                   disabled={deletingId === material.id}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-500/0 border border-transparent text-gray-500 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed opacity-0 group-hover:opacity-100 focus:opacity-100"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-transparent border border-transparent text-gray-500 hover:bg-white/10 hover:border-white/10 hover:text-red-400 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed opacity-0 group-hover:opacity-100 focus:opacity-100"
                   title="Delete material"
                 >
                   {deletingId === material.id ? (
