@@ -3042,36 +3042,32 @@ export const Subjects: React.FC = () => {
 
       {/* FLASHCARD STUDY PLAYER */}
       {activeStudySet !== null && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-between bg-[#080c14] text-white p-6 md:p-8 select-none animate-fade-in">
+        <div className="fixed inset-0 z-[90] flex flex-col justify-between bg-[#080c14] text-white p-6 md:p-8 select-none animate-fade-in">
+          {/* Minimal Top-edge Progress Runner */}
+          {!studyFinished && (
+            <div className="fixed top-0 left-0 w-full h-[3px] bg-zinc-900/60 z-[95]">
+              <div
+                className="h-full bg-purple-500 transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] shadow-[0_0_12px_rgba(168,85,247,0.8)]"
+                style={{ width: `${((currentCardIndex + 1) / activeStudySet.cards.length) * 100}%` }}
+              />
+            </div>
+          )}
+
           {!studyFinished ? (
             <>
               {/* Top Bar */}
-              <div className="w-full max-w-4xl mx-auto flex items-center justify-between pb-4 border-b border-white/5">
+              <div className="w-full max-w-4xl mx-auto flex items-center justify-between pt-2">
                 <button
                   onClick={() => setActiveStudySet(null)}
-                  className="flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 text-xs font-bold text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
                 >
                   <ChevronRight className="h-4 w-4 rotate-180" />
-                  <span>Exit Session</span>
+                  <span>Exit</span>
                 </button>
-                <h3 className="text-xs font-bold text-zinc-400 truncate max-w-[200px] md:max-w-md">{activeStudySet.title}</h3>
+                <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-zinc-600 truncate max-w-[200px] md:max-w-md">{activeStudySet.title}</h3>
                 <span className="text-[10px] text-zinc-500 font-bold font-mono">
-                  CARD {currentCardIndex + 1} OF {activeStudySet.cards.length}
+                  {currentCardIndex + 1} / {activeStudySet.cards.length}
                 </span>
-              </div>
-
-              {/* Progress Bar */}
-              <div className="w-full max-w-4xl mx-auto mt-4 space-y-2">
-                <div className="flex justify-between items-center text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">
-                  <span>Progress</span>
-                  <span>{Math.round(((currentCardIndex + 1) / activeStudySet.cards.length) * 100)}%</span>
-                </div>
-                <div className="w-full h-2 bg-zinc-950 border border-white/5 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-purple-500 transition-all duration-300 rounded-full"
-                    style={{ width: `${((currentCardIndex + 1) / activeStudySet.cards.length) * 100}%` }}
-                  />
-                </div>
               </div>
 
               {/* Card Container */}
@@ -3080,25 +3076,25 @@ export const Subjects: React.FC = () => {
                   <div className="perspective-1000 w-full max-w-2xl h-80 md:h-[380px] relative select-none">
                     <div
                       onClick={handleCardFlip}
-                      className={`relative w-full h-full preserve-3d transition-transform duration-500 cursor-pointer ${
+                      className={`relative w-full h-full preserve-3d transition-transform duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer ${
                         isFlipped ? 'rotate-y-180' : ''
                       }`}
                     >
                       {/* Front Face */}
                       <div className="absolute inset-0 backface-hidden">
-                        <div className="double-bezel-outer h-full w-full bg-zinc-950/80">
-                          <div className="double-bezel-inner p-8 flex flex-col justify-between h-full">
-                            <div className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider flex items-center gap-1.5">
-                              <BookOpen className="h-3.5 w-3.5 text-zinc-600" />
-                              <span>Question / Concept</span>
+                        <div className="double-bezel-outer h-full w-full bg-[#0a0c14] border-white/5">
+                          <div className="double-bezel-inner p-8 flex flex-col justify-between h-full bg-[#07090f]">
+                            <div className="text-[9px] uppercase font-bold text-zinc-600 tracking-[0.2em] flex items-center gap-1.5">
+                              <BookOpen className="h-3.5 w-3.5 text-zinc-700" strokeWidth={1.5} />
+                              <span>Question</span>
                             </div>
                             <div className="flex-1 flex items-center justify-center py-6">
                               <p className="text-base md:text-lg font-semibold text-zinc-200 text-center leading-relaxed px-4">
                                 {activeStudySet.cards[currentCardIndex].front}
                               </p>
                             </div>
-                            <div className="text-[10px] text-zinc-600 font-bold text-center">
-                              Click card or press Space to reveal answer
+                            <div className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest text-center">
+                              Space / Click to Flip
                             </div>
                           </div>
                         </div>
@@ -3106,19 +3102,19 @@ export const Subjects: React.FC = () => {
 
                       {/* Back Face */}
                       <div className="absolute inset-0 backface-hidden rotate-y-180">
-                        <div className="double-bezel-outer h-full w-full bg-purple-950/10 border-purple-500/20">
+                        <div className="double-bezel-outer h-full w-full bg-purple-950/[0.05] border-purple-500/10">
                           <div className="double-bezel-inner p-8 flex flex-col justify-between h-full bg-purple-500/[0.02]">
-                            <div className="text-[10px] uppercase font-bold text-purple-400 tracking-wider flex items-center gap-1.5">
-                              <Sparkles className="h-3.5 w-3.5 text-purple-500/70" />
-                              <span>Answer / Explanation</span>
+                            <div className="text-[9px] uppercase font-bold text-purple-400/80 tracking-[0.2em] flex items-center gap-1.5">
+                              <Sparkles className="h-3.5 w-3.5 text-purple-500/50" strokeWidth={1.5} />
+                              <span>Answer</span>
                             </div>
                             <div className="flex-1 flex items-center justify-center py-6">
                               <p className="text-base md:text-lg font-semibold text-zinc-200 text-center leading-relaxed px-4">
                                 {activeStudySet.cards[currentCardIndex].back}
                               </p>
                             </div>
-                            <div className="text-[10px] text-purple-400/50 font-bold text-center">
-                              Answer revealed
+                            <div className="text-[9px] text-purple-400/50 font-bold uppercase tracking-widest text-center">
+                              Answer Revealed
                             </div>
                           </div>
                         </div>
@@ -3129,27 +3125,27 @@ export const Subjects: React.FC = () => {
               </div>
 
               {/* Bottom Actions */}
-              <div className="w-full max-w-xl mx-auto flex items-center gap-4 pb-4">
+              <div className="w-full max-w-xl mx-auto flex items-center gap-4 pb-6">
                 <button
                   onClick={() => markCardPractice(activeStudySet.cards[currentCardIndex].id)}
-                  className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 text-amber-400 py-3.5 text-xs font-bold transition-all duration-300 hover:border-amber-500/40 hover:-translate-y-[1px] active:scale-[0.98] cursor-pointer"
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/[0.02] hover:bg-amber-500/5 hover:border-amber-500/30 text-amber-400 py-3.5 text-xs font-bold transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-[1px] active:scale-[0.98] cursor-pointer"
                 >
-                  <AlertCircle className="h-4.5 w-4.5" />
+                  <AlertCircle className="h-4.5 w-4.5" strokeWidth={1.5} />
                   <span>Practice (←)</span>
                 </button>
 
                 <button
                   onClick={handleCardFlip}
-                  className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300 px-8 py-3.5 text-xs font-bold transition-all duration-300 hover:-translate-y-[1px] active:scale-[0.98] cursor-pointer"
+                  className="rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/5 text-zinc-400 hover:text-zinc-200 px-8 py-3.5 text-xs font-bold transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-[1px] active:scale-[0.98] cursor-pointer"
                 >
                   Flip (Space)
                 </button>
 
                 <button
                   onClick={() => markCardKnown(activeStudySet.cards[currentCardIndex].id)}
-                  className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400 py-3.5 text-xs font-bold transition-all duration-300 hover:border-emerald-500/40 hover:-translate-y-[1px] active:scale-[0.98] cursor-pointer"
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.02] hover:bg-emerald-500/5 hover:border-emerald-500/30 text-emerald-400 py-3.5 text-xs font-bold transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-[1px] active:scale-[0.98] cursor-pointer"
                 >
-                  <CheckCircle className="h-4.5 w-4.5" />
+                  <CheckCircle className="h-4.5 w-4.5" strokeWidth={1.5} />
                   <span>Known (→)</span>
                 </button>
               </div>
