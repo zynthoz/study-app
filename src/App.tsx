@@ -13,6 +13,7 @@ import { ExamDetail } from './pages/ExamDetail'
 import { ExamSession } from './pages/ExamSession'
 import { ExamResults } from './pages/ExamResults'
 import { HistoryPage } from './pages/History'
+import { Landing } from './pages/Landing'
 
 const AppLayout: React.FC = () => {
   return (
@@ -25,7 +26,7 @@ const AppLayout: React.FC = () => {
       
       <main className="flex-1 w-full relative">
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/subjects" element={<Subjects />} />
           <Route path="/materials" element={<Navigate to="/subjects" replace />} />
           <Route path="/notes" element={<Navigate to="/subjects" replace />} />
@@ -35,7 +36,7 @@ const AppLayout: React.FC = () => {
           <Route path="/exams/:id/take" element={<ExamSession />} />
           <Route path="/exams/session/:sessionId" element={<ExamResults />} />
           <Route path="/history" element={<HistoryPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </main>
     </div>
@@ -47,7 +48,8 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public Auth Routes */}
+          {/* Public Routes */}
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
 

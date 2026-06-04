@@ -156,6 +156,30 @@ h1, h2, h3, h4, h5, h6 {
   background: #27272a;
 }
 
+/* Firefox scrollbar support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #18181b #030303;
+}
+
+/* Light Mode scrollbar overrides */
+html.light ::-webkit-scrollbar-track {
+  background: #f4f4f5 !important;
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: #d4d4d8 !important;
+}
+
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa !important;
+}
+
+html.light * {
+  scrollbar-color: #d4d4d8 #f4f4f5 !important;
+}
+
+
 /* TipTap Editor Rich Text Styling - Premium Void */
 .prose-editor .tiptap {
   min-height: 400px;
@@ -778,6 +802,49 @@ html.study-session-active nav {
   border-radius: 4px;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 11px;
+}
+
+/* ───────────────────────────────────────────────── */
+/* Landing Page Premium Styling & Animations         */
+/* ───────────────────────────────────────────────── */
+
+.landing-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  filter: blur(8px);
+  transition: opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 1.2s cubic-bezier(0.16, 1, 0.3, 1),
+              filter 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.landing-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+}
+
+.landing-tilt {
+  transform: perspective(1000px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.landing-dot-grid {
+  background-image: radial-gradient(rgba(139, 92, 246, 0.15) 1.5px, transparent 1.5px);
+  background-size: 32px 32px;
+}
+
+.landing-light-sweep {
+  background-image: radial-gradient(circle at 50% -20%, rgba(139, 92, 246, 0.08) 0%, transparent 60%);
+}
+
+.landing-cta-primary {
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.25);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.landing-cta-primary:hover {
+  box-shadow: 0 8px 30px rgba(139, 92, 246, 0.4);
+  transform: translateY(-1px);
 }
 
 /* ───────────────────────────────────────────────── */

@@ -25,3 +25,11 @@ dist-ssr
 
 .env
 .env.local
+
+.agents
+.impeccable
+.DESIGN.md
+.studyforge-phases.md
+.studyforge-prompts.md
+.studyforge-rls.md
+.studyforge-schema.md

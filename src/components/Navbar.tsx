@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { LogOut, LayoutDashboard, Folder, Award, History, Sun, Moon } from 'lucide-react'
 
 const navLinks = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/subjects', label: 'Subjects', icon: Folder },
   { to: '/exams', label: 'Exams', icon: Award },
   { to: '/history', label: 'History', icon: History },
@@ -106,12 +106,16 @@ export const Navbar: React.FC = () => {
       >
         {/* Brand/Logo */}
         <div className="flex items-center gap-6">
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-950 border border-white/10 group-hover:border-purple-500/50 transition-all duration-300 shadow-[0_0_15px_rgba(168,85,247,0.05)]">
-              <svg viewBox="0 0 100 100" className="h-7 w-7 text-purple-400 group-hover:text-purple-300 transition-colors" fill="none" stroke="currentColor">
-                <rect x="30" y="30" width="40" height="40" rx="4" strokeWidth="6" />
-                <rect x="30" y="30" width="40" height="40" rx="4" transform="rotate(45, 50, 50)" opacity="0.6" strokeWidth="4" />
-                <circle cx="50" cy="50" r="7" fill="currentColor" stroke="none" />
+          <Link to="/dashboard" className="flex items-center gap-2 group">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.04] backdrop-blur-md border border-white/[0.08] group-hover:border-purple-500/50 transition-all duration-300 shadow-[0_0_15px_rgba(168,85,247,0.08)]">
+              <svg viewBox="0 0 100 100" className="h-full w-full text-purple-400 group-hover:text-purple-300 transition-colors p-1.5" fill="none" stroke="currentColor">
+                <g strokeWidth="2.5">
+                  <rect x="15" y="15" width="70" height="70" rx="6" />
+                  <rect x="15" y="15" width="70" height="70" rx="6" transform="rotate(45, 50, 50)" opacity="0.5" strokeWidth="1.5" />
+                  <line x1="2" y1="50" x2="98" y2="50" strokeDasharray="4 4" strokeWidth="1" opacity="0.3" />
+                  <line x1="50" y1="2" x2="50" y2="98" strokeDasharray="4 4" strokeWidth="1" opacity="0.3" />
+                  <circle cx="50" cy="50" r="4.5" fill="currentColor" stroke="none" />
+                </g>
               </svg>
             </div>
             <span className="font-display text-lg font-bold tracking-tight text-white group-hover:text-purple-300 transition-all duration-300">
