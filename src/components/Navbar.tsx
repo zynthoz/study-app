@@ -13,10 +13,19 @@ const navLinks = [
 export const Navbar: React.FC = () => {
   const { user, signOut } = useAuth()
   const location = useLocation()
+  const [isScrolled, setIsScrolled] = useState(false)
 
   const [theme, setTheme] = useState<'light' | 'dark'>(
     (localStorage.getItem('theme') as 'light' | 'dark') || 'dark'
   )
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 0)
+    }
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   useEffect(() => {
     const root = window.document.documentElement
@@ -39,8 +48,20 @@ export const Navbar: React.FC = () => {
   const isNoteDetail = location.pathname.startsWith('/notes/')
 
   return (
-    <nav className={`${isNoteDetail ? 'relative' : 'sticky top-0'} z-50 w-full px-4 sm:px-6`}>
-      <div className="mx-auto max-w-7xl mt-6 rounded-full border border-white/10 bg-black/60 backdrop-blur-xl px-4 sm:px-6 py-3 flex items-center justify-between shadow-[0_10px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_10px_35px_rgba(0,0,0,0.6)]">
+    <nav
+      className={`${isNoteDetail ? 'relative' : 'sticky top-0'} z-50 w-full transition-all duration-300 ${
+        isScrolled && !isNoteDetail
+          ? 'bg-black/85 backdrop-blur-xl border-b border-white/5 py-3'
+          : 'pt-6 pb-2 px-4 sm:px-6'
+      }`}
+    >
+      <div
+        className={`mx-auto max-w-7xl transition-all duration-300 flex items-center justify-between ${
+          isScrolled && !isNoteDetail
+            ? 'w-full px-4 sm:px-6'
+            : 'rounded-full border border-white/10 bg-black/60 backdrop-blur-xl px-4 sm:px-6 py-3 shadow-[0_10px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_10px_35px_rgba(0,0,0,0.6)]'
+        }`}
+      >
         {/* Brand/Logo */}
         <div className="flex items-center gap-6">
           <Link to="/" className="flex items-center gap-2 group">
